@@ -92,36 +92,36 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		// Test dust thresholds (546 for a 1e3 relay fee).
 		5: {
 			UnspentOutputs: p2pkhOutputs(1e8),
-			Outputs: p2pkhOutputs(1e8 - 545 - txrules.FeeForSerializeSize(1e3,
+			Outputs: p2pkhOutputs(1e8 - 5459 - txrules.FeeForSerializeSize(1e3,
 				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
-			ChangeAmount: 545,
+			ChangeAmount: 5459,
 			InputCount:   1,
 		},
 		6: {
 			UnspentOutputs: p2pkhOutputs(1e8),
-			Outputs: p2pkhOutputs(1e8 - 546 - txrules.FeeForSerializeSize(1e3,
+			Outputs: p2pkhOutputs(1e8 - 5460 - txrules.FeeForSerializeSize(1e3,
 				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
-			ChangeAmount: 546,
+			ChangeAmount: 5460,
 			InputCount:   1,
 		},
 
 		// Test dust thresholds (1392.3 for a 2.55e3 relay fee).
 		7: {
 			UnspentOutputs: p2pkhOutputs(1e8),
-			Outputs: p2pkhOutputs(1e8 - 1392 - txrules.FeeForSerializeSize(2.55e3,
+			Outputs: p2pkhOutputs(1e8 - 13920 - txrules.FeeForSerializeSize(2.55e3,
 				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     2.55e3,
-			ChangeAmount: 1392,
+			ChangeAmount: 13920,
 			InputCount:   1,
 		},
 		8: {
 			UnspentOutputs: p2pkhOutputs(1e8),
-			Outputs: p2pkhOutputs(1e8 - 1393 - txrules.FeeForSerializeSize(2.55e3,
+			Outputs: p2pkhOutputs(1e8 - 13930 - txrules.FeeForSerializeSize(2.55e3,
 				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     2.55e3,
-			ChangeAmount: 1393,
+			ChangeAmount: 13930,
 			InputCount:   1,
 		},
 
@@ -130,10 +130,10 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		// serialize size for each).
 		9: {
 			UnspentOutputs: p2pkhOutputs(1e8, 1e8),
-			Outputs: p2pkhOutputs(1e8 - 546 - txrules.FeeForSerializeSize(1e3,
+			Outputs: p2pkhOutputs(1e8 - 5460 - txrules.FeeForSerializeSize(1e3,
 				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
-			ChangeAmount: 546,
+			ChangeAmount: 5460,
 			InputCount:   1,
 		},
 
@@ -144,10 +144,10 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		// how the function was written, so test it anyways.
 		10: {
 			UnspentOutputs: p2pkhOutputs(1e8, 1e8),
-			Outputs: p2pkhOutputs(1e8 - 545 - txrules.FeeForSerializeSize(1e3,
+			Outputs: p2pkhOutputs(1e8 - 5450 - txrules.FeeForSerializeSize(1e3,
 				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
-			ChangeAmount: 545,
+			ChangeAmount: 5450,
 			InputCount:   1,
 		},
 

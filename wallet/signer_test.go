@@ -74,7 +74,7 @@ func runTestCase(t *testing.T, w *Wallet, scope waddrmgr.KeyScope,
 		}},
 		TxOut: []*wire.TxOut{utxOut},
 	}
-	sigHashes := txscript.NewTxSigHashes(outgoingTx)
+	sigHashes := txscript.NewTxSigHashes(outgoingTx, new(txscript.CannedPrevOutputFetcher))
 
 	// Compute the input script to spend the UTXO now.
 	witness, script, err := w.ComputeInputScript(

@@ -272,7 +272,7 @@ func (w *Wallet) FinalizePsbt(keyScope *waddrmgr.KeyScope, account uint32,
 	// ones to sign. If there is any input without witness data that we
 	// cannot sign because it's not our UTXO, this will be a hard failure.
 	tx := packet.UnsignedTx
-	sigHashes := txscript.NewTxSigHashes(tx)
+	sigHashes := txscript.NewTxSigHashes(tx, new(txscript.CannedPrevOutputFetcher))
 	for idx, txIn := range tx.TxIn {
 		in := packet.Inputs[idx]
 
