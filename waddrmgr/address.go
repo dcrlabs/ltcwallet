@@ -278,6 +278,9 @@ func (a *managedAddress) PubKey() *btcec.PublicKey {
 // pubKeyBytes returns the serialized public key bytes for the managed address
 // based on whether or not the managed address is marked as compressed.
 func (a *managedAddress) pubKeyBytes() []byte {
+	if a.addrType == TaprootPubKey {
+		return schnorr.SerializePubKey(a.pubKey)
+	}
 	if a.compressed {
 		return a.pubKey.SerializeCompressed()
 	}
