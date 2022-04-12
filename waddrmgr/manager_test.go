@@ -2923,6 +2923,7 @@ func TestTaprootPubKeyDerivation(t *testing.T) {
 			return scopedMgr.DeriveFromKeyPath(ns, externalPath)
 		},
 		"ltc1puht8rk95c53q3u9w3pf9h3jfcutcrl9lxc7rqsdthjrse4k6sn7q9tuqm9",
+		scopedMgr,
 	)
 	assertAddressDerivation(
 		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
@@ -2933,18 +2934,21 @@ func TestTaprootPubKeyDerivation(t *testing.T) {
 			return addrs[0], nil
 		},
 		"ltc1puht8rk95c53q3u9w3pf9h3jfcutcrl9lxc7rqsdthjrse4k6sn7q9tuqm9",
+		scopedMgr,
 	)
 	assertAddressDerivation(
 		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
 			return scopedMgr.LastExternalAddress(ns, 0)
 		},
 		"ltc1puht8rk95c53q3u9w3pf9h3jfcutcrl9lxc7rqsdthjrse4k6sn7q9tuqm9",
+		scopedMgr,
 	)
 	assertAddressDerivation(
 		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
 			return scopedMgr.DeriveFromKeyPath(ns, internalPath)
 		},
 		"ltc1pehskafcqerg3hqvx005ywevqta7r0q980xgnencjgez0fyf7lt7s8r36hx",
+		scopedMgr,
 	)
 	assertAddressDerivation(
 		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
@@ -2955,12 +2959,14 @@ func TestTaprootPubKeyDerivation(t *testing.T) {
 			return addrs[0], nil
 		},
 		"ltc1pehskafcqerg3hqvx005ywevqta7r0q980xgnencjgez0fyf7lt7s8r36hx",
+		scopedMgr,
 	)
 	assertAddressDerivation(
 		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
 			return scopedMgr.LastInternalAddress(ns, 0)
 		},
 		"ltc1pehskafcqerg3hqvx005ywevqta7r0q980xgnencjgez0fyf7lt7s8r36hx",
+		scopedMgr,
 	)
 }
 
@@ -2968,7 +2974,7 @@ func TestTaprootPubKeyDerivation(t *testing.T) {
 // is the one that is expected.
 func assertAddressDerivation(t *testing.T, db walletdb.DB,
 	fn func(walletdb.ReadWriteBucket) (ManagedAddress, error),
-	expectedAddr string) {
+	expectedAddr string, scopedMgr *ScopedKeyManager) {
 
 	var address ManagedAddress
 	err := walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
@@ -2981,4 +2987,21 @@ func assertAddressDerivation(t *testing.T, db walletdb.DB,
 	require.NoError(t, err, "unable to derive addr: %v", err)
 
 	require.Equal(t, expectedAddr, address.Address().String())
+
+	// Also make sure marking addresses as used works correctly.
+	err = walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
+		ns := tx.ReadWriteBucket(waddrmgrNamespaceKey)
+
+		err = scopedMgr.MarkUsed(ns, address.Address())
+		if err != nil {
+			return err
+		}
+		used := address.Used(ns)
+		if used != true {
+			return fmt.Errorf("unexpected used flag -- got "+
+				"%v, want %v", used, true)
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }
