@@ -22,6 +22,7 @@ func BackEnds() []string {
 		"litecoind",
 		"ltcd",
 		"neutrino",
+		"bitcoind-rpc-polling",
 	}
 }
 
