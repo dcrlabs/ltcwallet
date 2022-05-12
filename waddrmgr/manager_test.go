@@ -282,6 +282,8 @@ func testManagedScriptAddress(tc *testContext, prefix string,
 func testAddress(tc *testContext, prefix string, gotAddr ManagedAddress,
 	wantAddr *expectedAddr) bool {
 
+	tc.t.Helper()
+
 	if gotAddr.InternalAccount() != tc.internalAccount {
 		tc.t.Errorf("ManagedAddress.Account: unexpected account - got "+
 			"%d, want %d", gotAddr.InternalAccount(), tc.internalAccount)
@@ -1705,7 +1707,7 @@ func testConvertWatchingOnly(tc *testContext) bool {
 	// Run all of the manager API tests against the converted manager and
 	// close it. We'll also retrieve the default scope (BIP0044) from the
 	// manager in order to use.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		tc.t.Errorf("unable to fetch bip 44 scope %v", err)
 		return false
@@ -1735,7 +1737,7 @@ func testConvertWatchingOnly(tc *testContext) bool {
 	}
 	defer mgr.Close()
 
-	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		tc.t.Errorf("unable to fetch bip 44 scope %v", err)
 		return false
@@ -1883,7 +1885,7 @@ func testManagerCase(t *testing.T, caseName string,
 
 		if caseCreatedWatchingOnly {
 			_, err = mgr.NewScopedKeyManager(
-				ns, KeyScopeBIP0044, ScopeAddrMap[KeyScopeBIP0044])
+				ns, KeyScopeBIP0044WithBitcoinCoinID, ScopeAddrMap[KeyScopeBIP0044WithBitcoinCoinID])
 		}
 		return err
 	})
@@ -1910,7 +1912,7 @@ func testManagerCase(t *testing.T, caseName string,
 		return
 	}
 
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		t.Fatalf("(%s) unable to fetch default scope: %v", caseName, err)
 	}
@@ -1969,7 +1971,7 @@ func testManagerCase(t *testing.T, caseName string,
 	}
 	defer mgr.Close()
 
-	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		t.Fatalf("(%s) unable to fetch default scope: %v", caseName, err)
 	}
@@ -2013,7 +2015,7 @@ func deriveTestAccountKey(t *testing.T) *hdkeychain.ExtendedKey {
 		t.Errorf("NewMaster: unexpected error: %v", err)
 		return nil
 	}
-	scopeKey, err := deriveCoinTypeKey(masterKey, KeyScopeBIP0044)
+	scopeKey, err := deriveCoinTypeKey(masterKey, KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		t.Errorf("derive: unexpected error: %v", err)
 		return nil
@@ -2608,7 +2610,7 @@ func TestNewRawAccountWatchingOnly(t *testing.T) {
 		}
 
 		_, err = mgr.NewScopedKeyManager(
-			ns, KeyScopeBIP0044, ScopeAddrMap[KeyScopeBIP0044])
+			ns, KeyScopeBIP0044WithBitcoinCoinID, ScopeAddrMap[KeyScopeBIP0044WithBitcoinCoinID])
 		return err
 	})
 	if err != nil {
@@ -2618,9 +2620,9 @@ func TestNewRawAccountWatchingOnly(t *testing.T) {
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
-		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044, err)
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err)
 	}
 
 	accountKey := deriveTestAccountKey(t)
@@ -2679,9 +2681,9 @@ func TestNewRawAccountHybrid(t *testing.T) {
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
-		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044, err)
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err)
 	}
 
 	accountKey := deriveTestAccountKey(t)
@@ -2802,9 +2804,9 @@ func TestDeriveFromKeyPathCache(t *testing.T) {
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	require.NoError(
-		t, err, "unable to fetch scope %v: %v", KeyScopeBIP0044, err,
+		t, err, "unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err,
 	)
 
 	keyPath := DerivationPath{

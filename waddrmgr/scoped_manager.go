@@ -147,12 +147,27 @@ var (
 	// p2wkh change all change addresses.
 	KeyScopeBIP0049Plus = KeyScope{
 		Purpose: 49,
+		Coin:    2,
+	}
+
+	// KeyScopeBIP0049PlusWithBitcoinCoinID is KeyScopeBIP0049Plus but with the
+	// Bitcoin Coin ID, because when ltcwallet first forked from btcwallet, they
+	// didn't change the ID, so we must look for these too.
+	KeyScopeBIP0049PlusWithBitcoinCoinID = KeyScope{
+		Purpose: 49,
 		Coin:    0,
 	}
 
 	// KeyScopeBIP0084 is the key scope for BIP0084 derivation. BIP0084
 	// will be used to derive all p2wkh addresses.
 	KeyScopeBIP0084 = KeyScope{
+		Purpose: 84,
+		Coin:    2,
+	}
+
+	// KeyScopeBIP0084WithBitcoinCoinID is KeyScopeBIP0084 with the bitcoin
+	// coin ID.
+	KeyScopeBIP0084WithBitcoinCoinID = KeyScope{
 		Purpose: 84,
 		Coin:    0,
 	}
@@ -169,6 +184,13 @@ var (
 	// it.
 	KeyScopeBIP0044 = KeyScope{
 		Purpose: 44,
+		Coin:    2,
+	}
+
+	// KeyScopeBIP0044WithBitcoinCoinID is KeyScopeBIP0044 with the bitcoin coin
+	// ID.
+	KeyScopeBIP0044WithBitcoinCoinID = KeyScope{
+		Purpose: 44,
 		Coin:    0,
 	}
 
@@ -176,9 +198,14 @@ var (
 	// created by the root manager upon initial creation.
 	DefaultKeyScopes = []KeyScope{
 		KeyScopeBIP0049Plus,
+		KeyScopeBIP0084WithBitcoinCoinID,
 		KeyScopeBIP0084,
+		KeyScopeBIP0084WithBitcoinCoinID,
 		KeyScopeBIP0086,
 		KeyScopeBIP0044,
+		KeyScopeBIP0044WithBitcoinCoinID,
+		KeyScopeBIP0049PlusWithBitcoinCoinID,
+		KeyScopeBIP0084WithBitcoinCoinID,
 	}
 
 	// ScopeAddrMap is a map from the default key scopes to the scope
@@ -189,7 +216,15 @@ var (
 			ExternalAddrType: NestedWitnessPubKey,
 			InternalAddrType: WitnessPubKey,
 		},
+		KeyScopeBIP0049PlusWithBitcoinCoinID: {
+			ExternalAddrType: NestedWitnessPubKey,
+			InternalAddrType: WitnessPubKey,
+		},
 		KeyScopeBIP0084: {
+			ExternalAddrType: WitnessPubKey,
+			InternalAddrType: WitnessPubKey,
+		},
+		KeyScopeBIP0084WithBitcoinCoinID: {
 			ExternalAddrType: WitnessPubKey,
 			InternalAddrType: WitnessPubKey,
 		},
@@ -198,6 +233,10 @@ var (
 			InternalAddrType: TaprootPubKey,
 		},
 		KeyScopeBIP0044: {
+			InternalAddrType: PubKeyHash,
+			ExternalAddrType: PubKeyHash,
+		},
+		KeyScopeBIP0044WithBitcoinCoinID: {
 			InternalAddrType: PubKeyHash,
 			ExternalAddrType: PubKeyHash,
 		},

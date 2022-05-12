@@ -31,7 +31,7 @@ import (
 
 // NeutrinoClient is an implementation of the ltcwallet chain.Interface interface.
 type NeutrinoClient struct {
-	CS  *spv.ChainService
+	CS  *neutrino.ChainService
 	log btclog.Logger
 
 	chainParams *chaincfg.Params

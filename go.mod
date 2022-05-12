@@ -13,11 +13,11 @@ require (
 	github.com/ltcsuite/lnd/clock v0.0.0-20200822020009-1a001cbb895a
 	github.com/ltcsuite/lnd/queue v1.1.0
 	github.com/ltcsuite/lnd/ticker v1.0.1
-	github.com/ltcsuite/ltcd v0.23.5
+	github.com/ltcsuite/ltcd v0.23.6-0.20240131072528-64dfa402637a
 	github.com/ltcsuite/ltcd/btcec/v2 v2.3.2
 	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2
-	github.com/ltcsuite/ltcd/ltcutil v1.1.3
-	github.com/ltcsuite/ltcd/ltcutil/psbt v1.1.0-1
+	github.com/ltcsuite/ltcd/ltcutil v1.1.4-0.20240131072528-64dfa402637a
+	github.com/ltcsuite/ltcd/ltcutil/psbt v1.1.1-0.20240131072528-64dfa402637a
 	github.com/stretchr/testify v1.8.0
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
