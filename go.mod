@@ -13,15 +13,16 @@ require (
 	github.com/ltcsuite/lnd/clock v0.0.0-20200822020009-1a001cbb895a
 	github.com/ltcsuite/lnd/queue v1.1.0
 	github.com/ltcsuite/lnd/ticker v1.0.1
+	github.com/ltcsuite/lnd/tlv v0.0.0-20240222214433-454d35886119
 	github.com/ltcsuite/ltcd v0.23.6-0.20240131072528-64dfa402637a
 	github.com/ltcsuite/ltcd/btcec/v2 v2.3.2
 	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2
 	github.com/ltcsuite/ltcd/ltcutil v1.1.4-0.20240131072528-64dfa402637a
 	github.com/ltcsuite/ltcd/ltcutil/psbt v1.1.1-0.20240131072528-64dfa402637a
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.9.0
 	go.etcd.io/bbolt v1.3.5
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
+	golang.org/x/crypto v0.7.0
+	golang.org/x/net v0.8.0
 	google.golang.org/grpc v1.38.0
 )
 

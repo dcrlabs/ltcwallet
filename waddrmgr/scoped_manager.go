@@ -10,6 +10,7 @@ import (
 	"github.com/dcrlabs/ltcwallet/spv/cache/lru"
 	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/btcec/v2"
+	"github.com/ltcsuite/ltcd/btcec/v2/schnorr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
@@ -1962,6 +1963,16 @@ func (s *ScopedKeyManager) importPublicKey(ns walletdb.ReadWriteBucket,
 			return err
 		}
 		addressID = ltcutil.Hash160(witnessScript)
+
+	case TaprootPubKey:
+		internalPubKey, err := btcec.ParsePubKey(serializedPubKey)
+		if err != nil {
+			return err
+		}
+		taprootPubKey := txscript.ComputeTaprootKeyNoScript(
+			internalPubKey,
+		)
+		addressID = schnorr.SerializePubKey(taprootPubKey)
 
 	default:
 		return fmt.Errorf("unsupported address type %v", addrType)

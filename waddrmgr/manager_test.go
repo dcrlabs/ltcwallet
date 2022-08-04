@@ -22,7 +22,6 @@ import (
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
-	"github.com/stretchr/testify/require"
 )
 
 // failingCryptoKey is an implementation of the EncryptorDecryptor interface
@@ -2798,16 +2797,18 @@ func TestDeriveFromKeyPathCache(t *testing.T) {
 
 		return mgr.Unlock(ns, privPassphrase)
 	})
-	require.NoError(t, err, "create/open: unexpected error: %v", err)
+	if err != nil {
+		t.Fatalf("create/open: unexpected error: %v", err)
+	}
 
 	defer mgr.Close()
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
 	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
-	require.NoError(
-		t, err, "unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err,
-	)
+	if err != nil {
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err)
+	}
 
 	keyPath := DerivationPath{
 		InternalAccount: 0,
@@ -2844,20 +2845,30 @@ func TestDeriveFromKeyPathCache(t *testing.T) {
 
 		return nil
 	})
-	require.NoError(t, err, "unable to derive addr: %v", err)
+	if err != nil {
+		t.Fatalf("unable to derive addr: %v", err)
+	}
 
 	// Next attempt to read the key again from the cache, it should succeed
 	// this time.
 	cachedKey, err := scopedMgr.DeriveFromKeyPathCache(keyPath)
-	require.NoError(t, err, "account wasn't cached")
+	if err != nil {
+		t.Fatalf("account wasn't cached")
+	}
 
 	// We should be able to read the key again.
 	cachedKey2, err := scopedMgr.DeriveFromKeyPathCache(keyPath)
-	require.NoError(t, err, "account wasn't cached")
+	if err != nil {
+		t.Fatalf("account wasn't cached")
+	}
 
 	// All three keys we have now should match exactly.
-	require.Equal(t, cachedKey.Serialize(), cachedKey2.Serialize())
-	require.Equal(t, derivedKey.Serialize(), cachedKey2.Serialize())
+	if !bytes.Equal(cachedKey.Serialize(), cachedKey2.Serialize()) {
+		t.Fatal("cached keys not equal")
+	}
+	if !bytes.Equal(derivedKey.Serialize(), cachedKey2.Serialize()) {
+		t.Fatal("wrong derived key")
+	}
 }
 
 // TestTaprootPubKeyDerivation tests that p2tr addresses can be derived from the
@@ -2896,16 +2907,18 @@ func TestTaprootPubKeyDerivation(t *testing.T) {
 
 		return mgr.Unlock(ns, privPassphrase)
 	})
-	require.NoError(t, err, "create/open: unexpected error: %v", err)
+	if err != nil {
+		t.Fatalf("create/open: unexpected error: %v", err)
+	}
 
 	defer mgr.Close()
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
 	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0086)
-	require.NoError(
-		t, err, "unable to fetch scope %v: %v", KeyScopeBIP0086, err,
-	)
+	if err != nil {
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0086, err)
+	}
 
 	externalPath := DerivationPath{
 		InternalAccount: 0,
@@ -2986,9 +2999,13 @@ func assertAddressDerivation(t *testing.T, db walletdb.DB,
 		address, err = fn(ns)
 		return err
 	})
-	require.NoError(t, err, "unable to derive addr: %v", err)
+	if err != nil {
+		t.Fatalf("unable to derive addr: %v", err)
+	}
 
-	require.Equal(t, expectedAddr, address.Address().String())
+	if expectedAddr != address.Address().String() {
+		t.Fatalf("wrong derived address. expected %s got %s", expectedAddr, address.Address().String())
+	}
 
 	// Also make sure marking addresses as used works correctly.
 	err = walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
@@ -3005,5 +3022,7 @@ func assertAddressDerivation(t *testing.T, db walletdb.DB,
 		}
 		return nil
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("error marking address as used: %v", err)
+	}
 }
