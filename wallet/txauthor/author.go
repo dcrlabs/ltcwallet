@@ -95,7 +95,7 @@ func NewUnsignedTransaction(outputs []*wire.TxOut, feeRatePerKb ltcutil.Amount,
 
 	targetAmount := SumOutputValues(outputs)
 	estimatedSize := txsizes.EstimateVirtualSize(
-		0, 1, 0, outputs, changeSource.ScriptSize,
+		0, 0, 1, 0, outputs, changeSource.ScriptSize,
 	)
 	targetFee := txrules.FeeForSerializeSize(feeRatePerKb, estimatedSize)
 
@@ -110,7 +110,7 @@ func NewUnsignedTransaction(outputs []*wire.TxOut, feeRatePerKb ltcutil.Amount,
 
 		// We count the types of inputs, which we'll use to estimate
 		// the vsize of the transaction.
-		var nested, p2wpkh, p2pkh int
+		var nested, p2wpkh, p2tr, p2pkh int
 		for _, pkScript := range scripts {
 			switch {
 			// If this is a p2sh output, we assume this is a
@@ -119,13 +119,15 @@ func NewUnsignedTransaction(outputs []*wire.TxOut, feeRatePerKb ltcutil.Amount,
 				nested++
 			case txscript.IsPayToWitnessPubKeyHash(pkScript):
 				p2wpkh++
+			case txscript.IsPayToTaproot(pkScript):
+				p2tr++
 			default:
 				p2pkh++
 			}
 		}
 
 		maxSignedSize := txsizes.EstimateVirtualSize(
-			p2pkh, p2wpkh, nested, outputs, changeSource.ScriptSize,
+			p2pkh, p2tr, p2wpkh, nested, outputs, changeSource.ScriptSize,
 		)
 		maxRequiredFee := txrules.FeeForSerializeSize(feeRatePerKb, maxSignedSize)
 		remainingAmount := inputAmount - targetAmount

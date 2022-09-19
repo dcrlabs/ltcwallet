@@ -61,7 +61,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 			Outputs:        p2pkhOutputs(1e6),
 			RelayFee:       1e3,
 			ChangeAmount: 1e8 - 1e6 - txrules.FeeForSerializeSize(1e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(1e6), txsizes.P2WPKHPkScriptSize)),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(1e6), txsizes.P2WPKHPkScriptSize)),
 			InputCount: 1,
 		},
 		2: {
@@ -69,7 +69,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 			Outputs:        p2pkhOutputs(1e6),
 			RelayFee:       1e4,
 			ChangeAmount: 1e8 - 1e6 - txrules.FeeForSerializeSize(1e4,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(1e6), txsizes.P2WPKHPkScriptSize)),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(1e6), txsizes.P2WPKHPkScriptSize)),
 			InputCount: 1,
 		},
 		3: {
@@ -77,7 +77,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 			Outputs:        p2pkhOutputs(1e6, 1e6, 1e6),
 			RelayFee:       1e4,
 			ChangeAmount: 1e8 - 3e6 - txrules.FeeForSerializeSize(1e4,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(1e6, 1e6, 1e6), txsizes.P2WPKHPkScriptSize)),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(1e6, 1e6, 1e6), txsizes.P2WPKHPkScriptSize)),
 			InputCount: 1,
 		},
 		4: {
@@ -85,7 +85,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 			Outputs:        p2pkhOutputs(1e6, 1e6, 1e6),
 			RelayFee:       2.55e3,
 			ChangeAmount: 1e8 - 3e6 - txrules.FeeForSerializeSize(2.55e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(1e6, 1e6, 1e6), txsizes.P2WPKHPkScriptSize)),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(1e6, 1e6, 1e6), txsizes.P2WPKHPkScriptSize)),
 			InputCount: 1,
 		},
 
@@ -93,7 +93,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		5: {
 			UnspentOutputs: p2pkhOutputs(1e8),
 			Outputs: p2pkhOutputs(1e8 - 5459 - txrules.FeeForSerializeSize(1e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
 			ChangeAmount: 5459,
 			InputCount:   1,
@@ -101,7 +101,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		6: {
 			UnspentOutputs: p2pkhOutputs(1e8),
 			Outputs: p2pkhOutputs(1e8 - 5460 - txrules.FeeForSerializeSize(1e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
 			ChangeAmount: 5460,
 			InputCount:   1,
@@ -111,7 +111,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		7: {
 			UnspentOutputs: p2pkhOutputs(1e8),
 			Outputs: p2pkhOutputs(1e8 - 13920 - txrules.FeeForSerializeSize(2.55e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     2.55e3,
 			ChangeAmount: 13920,
 			InputCount:   1,
@@ -119,7 +119,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		8: {
 			UnspentOutputs: p2pkhOutputs(1e8),
 			Outputs: p2pkhOutputs(1e8 - 13930 - txrules.FeeForSerializeSize(2.55e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     2.55e3,
 			ChangeAmount: 13930,
 			InputCount:   1,
@@ -131,7 +131,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		9: {
 			UnspentOutputs: p2pkhOutputs(1e8, 1e8),
 			Outputs: p2pkhOutputs(1e8 - 5460 - txrules.FeeForSerializeSize(1e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
 			ChangeAmount: 5460,
 			InputCount:   1,
@@ -145,7 +145,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 		10: {
 			UnspentOutputs: p2pkhOutputs(1e8, 1e8),
 			Outputs: p2pkhOutputs(1e8 - 5450 - txrules.FeeForSerializeSize(1e3,
-				txsizes.EstimateVirtualSize(1, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
+				txsizes.EstimateVirtualSize(1, 0, 0, 0, p2pkhOutputs(0), txsizes.P2WPKHPkScriptSize))),
 			RelayFee:     1e3,
 			ChangeAmount: 5450,
 			InputCount:   1,
@@ -157,7 +157,7 @@ func TestNewUnsignedTransaction(t *testing.T) {
 			Outputs:        p2pkhOutputs(1e8),
 			RelayFee:       1e3,
 			ChangeAmount: 1e8 - txrules.FeeForSerializeSize(1e3,
-				txsizes.EstimateVirtualSize(2, 0, 0, p2pkhOutputs(1e8), txsizes.P2WPKHPkScriptSize)),
+				txsizes.EstimateVirtualSize(2, 0, 0, 0, p2pkhOutputs(1e8), txsizes.P2WPKHPkScriptSize)),
 			InputCount: 2,
 		},
 
