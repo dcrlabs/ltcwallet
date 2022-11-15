@@ -2773,6 +2773,13 @@ func (w *Wallet) ListLeasedOutputs() ([]*ListLeasedOutputResult, error) {
 				return err
 			}
 
+			if details == nil {
+				log.Infof("unable to find tx details for "+
+					"%v:%v", output.Outpoint.Hash,
+					output.Outpoint.Index)
+				continue
+			}
+
 			txOut := details.MsgTx.TxOut[output.Outpoint.Index]
 
 			result := &ListLeasedOutputResult{
