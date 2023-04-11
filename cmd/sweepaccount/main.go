@@ -9,8 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/dcrlabs/ltcwallet/internal/cfgutil"
 	"github.com/dcrlabs/ltcwallet/netparams"
 	"github.com/dcrlabs/ltcwallet/wallet/txauthor"
@@ -23,6 +21,7 @@ import (
 	"github.com/ltcsuite/ltcd/rpcclient"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
+	"golang.org/x/term"
 )
 
 var (
@@ -335,7 +334,7 @@ func sweep() error {
 func promptSecret(what string) (string, error) {
 	fmt.Printf("%s: ", what)
 	fd := int(os.Stdin.Fd())
-	input, err := terminal.ReadPassword(fd)
+	input, err := term.ReadPassword(fd)
 	fmt.Println()
 	if err != nil {
 		return "", err
