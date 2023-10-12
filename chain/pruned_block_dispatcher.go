@@ -632,7 +632,7 @@ func (d *PrunedBlockDispatcher) handleResp(req, resp wire.Message,
 		}
 	}
 
-	err = blockchain.ValidateWitnessCommitment(btcutil.NewBlock(block))
+	err = blockchain.ValidateWitnessCommitment(ltcutil.NewBlock(block))
 	if err != nil {
 		d.blockMtx.Unlock()
 
