@@ -191,7 +191,7 @@ func (c *BitcoindClient) GetRawTransactionVerbose(
 	return c.chainConn.client.GetRawTransactionVerbose(hash)
 }
 
-// GetRawTransaction returns a `btcutil.Tx` from the tx hash.
+// GetRawTransaction returns a `ltcutil.Tx` from the tx hash.
 func (c *BitcoindClient) GetRawTransaction(
 	hash *chainhash.Hash) (*ltcutil.Tx, error) {
 
