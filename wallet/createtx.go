@@ -431,11 +431,11 @@ func validateMsgTx(tx *wire.MsgTx, prevScripts [][]byte, inputValues []ltcutil.A
 			txscript.StandardVerifyFlags, nil, hashCache,
 			int64(inputValues[i]), inputFetcher)
 		if err != nil {
-			return fmt.Errorf("cannot create script engine: %s", err)
+			return fmt.Errorf("cannot create script engine: %w", err)
 		}
 		err = vm.Execute()
 		if err != nil {
-			return fmt.Errorf("cannot validate transaction: %s", err)
+			return fmt.Errorf("cannot validate transaction: %w", err)
 		}
 	}
 	return nil

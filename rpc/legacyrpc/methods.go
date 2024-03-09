@@ -1366,12 +1366,12 @@ func makeOutputs(pairs map[string]ltcutil.Amount, chainParams *chaincfg.Params) 
 	for addrStr, amt := range pairs {
 		addr, err := ltcutil.DecodeAddress(addrStr, chainParams)
 		if err != nil {
-			return nil, fmt.Errorf("cannot decode address: %s", err)
+			return nil, fmt.Errorf("cannot decode address: %w", err)
 		}
 
 		pkScript, err := txscript.PayToAddrScript(addr)
 		if err != nil {
-			return nil, fmt.Errorf("cannot create txout script: %s", err)
+			return nil, fmt.Errorf("cannot create txout script: %w", err)
 		}
 
 		outputs = append(outputs, wire.NewTxOut(int64(amt), pkScript))
