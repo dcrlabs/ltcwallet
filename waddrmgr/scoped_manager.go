@@ -1047,7 +1047,8 @@ func (s *ScopedKeyManager) accountAddrType(acctInfo *accountInfo,
 //
 // This function MUST be called with the manager lock held for writes.
 func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
-	account uint32, numAddresses uint32, internal bool) ([]ManagedAddress, error) {
+	account uint32, numAddresses uint32, internal bool) ([]ManagedAddress,
+	error) {
 
 	// The next address can only be generated for accounts that have
 	// already been created.
@@ -1129,10 +1130,11 @@ func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
 		// proper derivation path so this information can be available
 		// to callers.
 		derivationPath := DerivationPath{
-			InternalAccount: account,
-			Account:         acctKey.ChildIndex(),
-			Branch:          branchNum,
-			Index:           nextIndex - 1,
+			InternalAccount:      account,
+			Account:              acctKey.ChildIndex(),
+			Branch:               branchNum,
+			Index:                nextIndex - 1,
+			MasterKeyFingerprint: acctInfo.masterKeyFingerprint,
 		}
 
 		// Create a new managed address based on the public or private
