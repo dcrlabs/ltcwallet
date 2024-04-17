@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 )
 
 // TestErrorCodeStringer tests the stringized output for the ErrorCode type.

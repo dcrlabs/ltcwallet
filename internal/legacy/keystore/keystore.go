@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 
+	"github.com/dcrlabs/ltcwallet/internal/legacy/rename"
 	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ltcsuite/ltcd/btcec/v2"
 	"github.com/ltcsuite/ltcd/btcec/v2/ecdsa"
@@ -32,7 +33,6 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/legacy/rename"
 )
 
 const (

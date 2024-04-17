@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/btcsuite/websocket"
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/wallet"
 	"github.com/ltcsuite/ltcd/btcjson"
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/wallet"
 )
 
 type websocketClient struct {
@@ -165,7 +165,7 @@ func NewServer(opts *Options, walletLoader *wallet.Loader, listeners []net.Liste
 // httpBasicAuth returns the UTF-8 bytes of the HTTP Basic authentication
 // string:
 //
-//   "Basic " + base64(username + ":" + password)
+//	"Basic " + base64(username + ":" + password)
 func httpBasicAuth(username, password string) []byte {
 	const header = "Basic "
 	base64 := base64.StdEncoding

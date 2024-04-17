@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/dcrlabs/ltcwallet/internal/rpchelp"
 	"github.com/ltcsuite/ltcd/btcjson"
-	"github.com/ltcsuite/ltcwallet/internal/rpchelp"
 )
 
 var outputFile = func() *os.File {

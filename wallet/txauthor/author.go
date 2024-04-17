@@ -8,12 +8,12 @@ package txauthor
 import (
 	"errors"
 
+	"github.com/dcrlabs/ltcwallet/wallet/txrules"
+	"github.com/dcrlabs/ltcwallet/wallet/txsizes"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/wallet/txrules"
-	"github.com/ltcsuite/ltcwallet/wallet/txsizes"
 )
 
 // SumOutputValues sums up the list of TxOuts and returns an Amount.
@@ -207,7 +207,7 @@ func AddAllInputScripts(tx *wire.MsgTx, prevPkScripts [][]byte, inputValues []lt
 	secrets SecretsSource) error {
 
 	inputs := tx.TxIn
-	hashCache := txscript.NewTxSigHashes(tx)
+	hashCache := txscript.NewTxSigHashes(tx, inputValues)
 	chainParams := secrets.ChainParams()
 
 	if len(inputs) != len(prevPkScripts) {

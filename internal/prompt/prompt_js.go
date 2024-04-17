@@ -8,7 +8,7 @@ import (
 	"bufio"
 	"fmt"
 
-	"github.com/ltcsuite/ltcwallet/internal/legacy/keystore"
+	"github.com/dcrlabs/ltcwallet/internal/legacy/keystore"
 )
 
 func ProvideSeed() ([]byte, error) {

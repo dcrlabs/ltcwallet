@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/psbt"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
 )
 
 var (

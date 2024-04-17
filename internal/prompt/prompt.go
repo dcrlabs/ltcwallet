@@ -15,8 +15,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/dcrlabs/ltcwallet/internal/legacy/keystore"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
-	"github.com/ltcsuite/ltcwallet/internal/legacy/keystore"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

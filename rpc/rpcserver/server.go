@@ -8,11 +8,11 @@
 // Full documentation of the API implemented by this package is maintained in a
 // language-agnostic document:
 //
-//   https://github.com/ltcsuite/ltcwallet/blob/master/rpc/documentation/api.md
+//	https://github.com/dcrlabs/ltcwallet/blob/master/rpc/documentation/api.md
 //
 // Any API changes must be performed according to the steps listed here:
 //
-//   https://github.com/ltcsuite/ltcwallet/blob/master/rpc/documentation/serverchanges.md
+//	https://github.com/dcrlabs/ltcwallet/blob/master/rpc/documentation/serverchanges.md
 package rpcserver
 
 import (
@@ -26,20 +26,20 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/internal/cfgutil"
+	"github.com/dcrlabs/ltcwallet/internal/zero"
+	"github.com/dcrlabs/ltcwallet/netparams"
+	pb "github.com/dcrlabs/ltcwallet/rpc/walletrpc"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/rpcclient"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/internal/cfgutil"
-	"github.com/ltcsuite/ltcwallet/internal/zero"
-	"github.com/ltcsuite/ltcwallet/netparams"
-	pb "github.com/ltcsuite/ltcwallet/rpc/walletrpc"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 // Public API version constants
@@ -486,12 +486,12 @@ func (s *walletServer) SignTransaction(ctx context.Context, req *pb.SignTransact
 }
 
 // BUGS:
-// - The transaction is not inspected to be relevant before publishing using
-//   sendrawtransaction, so connection errors to ltcd could result in the tx
-//   never being added to the wallet database.
-// - Once the above bug is fixed, wallet will require a way to purge invalid
-//   transactions from the database when they are rejected by the network, other
-//   than double spending them.
+//   - The transaction is not inspected to be relevant before publishing using
+//     sendrawtransaction, so connection errors to ltcd could result in the tx
+//     never being added to the wallet database.
+//   - Once the above bug is fixed, wallet will require a way to purge invalid
+//     transactions from the database when they are rejected by the network, other
+//     than double spending them.
 func (s *walletServer) PublishTransaction(ctx context.Context, req *pb.PublishTransactionRequest) (
 	*pb.PublishTransactionResponse, error) {
 

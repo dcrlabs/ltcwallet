@@ -1,6 +1,6 @@
 # ltcwallet
 
-[![Build Status](https://travis-ci.org/ltcsuite/ltcwallet.png?branch=master)](https://travis-ci.org/ltcsuite/ltcwallet)
+[![Build Status](https://travis-ci.org/dcrlabs/ltcwallet.png?branch=master)](https://travis-ci.org/dcrlabs/ltcwallet)
 [![Build status](https://ci.appveyor.com/api/projects/status/88nxvckdj8upqr36/branch/master?svg=true)](https://ci.appveyor.com/project/jrick/ltcwallet/branch/master)
 
 ltcwallet is a daemon handling litecoin wallet functionality for a
@@ -65,7 +65,7 @@ Install the latest MSIs available here:
 
 https://github.com/ltcsuite/ltcd/releases
 
-https://github.com/ltcsuite/ltcwallet/releases
+https://github.com/dcrlabs/ltcwallet/releases
 
 ### Windows/Linux/BSD/POSIX - Build from source
 
@@ -87,7 +87,7 @@ recommended that `GOPATH` is set to a directory in your home directory such as
 - Run the following commands to obtain ltcwallet, all dependencies, and install it:
 
 ```bash
-$ cd $GOPATH/src/github.com/ltcsuite/ltcwallet
+$ cd $GOPATH/src/github.com/dcrlabs/ltcwallet
 $ GO111MODULE=on go install -v . ./cmd/...
 ```
 
@@ -106,7 +106,7 @@ Install a newer MSI
 - Run the following commands to update ltcd, all dependencies, and install it:
 
 ```bash
-$ cd $GOPATH/src/github.com/ltcsuite/ltcwallet
+$ cd $GOPATH/src/github.com/dcrlabs/ltcwallet
 $ git pull
 $ GO111MODULE=on go install -v . ./cmd/...
 ```
@@ -161,14 +161,14 @@ Linux/BSD/POSIX (Installed from source):
 
 ```bash
 $ cp $GOPATH/src/github.com/ltcsuite/ltcd/sample-ltcd.conf ~/.ltcd/ltcd.conf
-$ cp $GOPATH/src/github.com/ltcsuite/ltcwallet/sample-ltcwallet.conf ~/.ltcwallet/ltcwallet.conf
+$ cp $GOPATH/src/github.com/dcrlabs/ltcwallet/sample-ltcwallet.conf ~/.ltcwallet/ltcwallet.conf
 $ $EDITOR ~/.ltcd/ltcd.conf
 $ $EDITOR ~/.ltcwallet/ltcwallet.conf
 ```
 
 ## Issue Tracker
 
-The [integrated github issue tracker](https://github.com/ltcsuite/ltcwallet/issues)
+The [integrated github issue tracker](https://github.com/dcrlabs/ltcwallet/issues)
 is used for this project.
 
 ## GPG Verification Key

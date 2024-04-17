@@ -9,13 +9,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/btcjson"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
 )
 
 var (
@@ -310,6 +310,7 @@ func (c *BitcoindClient) shouldNotifyBlocks() bool {
 // is used to reset the current filters.
 //
 // The current filters supported are of the following types:
+//
 //	[]ltcutil.Address
 //	[]wire.OutPoint
 //	[]*wire.OutPoint

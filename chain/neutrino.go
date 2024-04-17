@@ -6,6 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/spv"
+	"github.com/dcrlabs/ltcwallet/spv/headerfs"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
@@ -14,20 +18,16 @@ import (
 	"github.com/ltcsuite/ltcd/rpcclient"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
-	"github.com/ltcsuite/neutrino"
-	"github.com/ltcsuite/neutrino/headerfs"
 )
 
 // NeutrinoClient is an implementation of the ltcwallet chain.Interface interface.
 type NeutrinoClient struct {
-	CS *neutrino.ChainService
+	CS *spv.ChainService
 
 	chainParams *chaincfg.Params
 
 	// We currently support one rescan/notifiction goroutine per client
-	rescan *neutrino.Rescan
+	rescan *spv.Rescan
 
 	enqueueNotification     chan interface{}
 	dequeueNotification     chan interface{}
@@ -51,7 +51,7 @@ type NeutrinoClient struct {
 // NewNeutrinoClient creates a new NeutrinoClient struct with a backing
 // ChainService.
 func NewNeutrinoClient(chainParams *chaincfg.Params,
-	chainService *neutrino.ChainService) *NeutrinoClient {
+	chainService *spv.ChainService) *NeutrinoClient {
 
 	return &NeutrinoClient{
 		CS:          chainService,
@@ -321,7 +321,7 @@ func (s *NeutrinoClient) pollCFilter(hash *chainhash.Hash) (*gcs.Filter, error) 
 		}
 
 		filter, err = s.CS.GetCFilter(
-			*hash, wire.GCSFilterRegular, neutrino.OptimisticBatch(),
+			*hash, wire.GCSFilterRegular, spv.OptimisticBatch(),
 		)
 		if err != nil {
 			count++
@@ -397,34 +397,34 @@ func (s *NeutrinoClient) Rescan(startHash *chainhash.Hash, addrs []ltcutil.Addre
 		}
 	}
 
-	var inputsToWatch []neutrino.InputWithScript
+	var inputsToWatch []spv.InputWithScript
 	for op, addr := range outPoints {
 		addrScript, err := txscript.PayToAddrScript(addr)
 		if err != nil {
 			return err
 		}
 
-		inputsToWatch = append(inputsToWatch, neutrino.InputWithScript{
+		inputsToWatch = append(inputsToWatch, spv.InputWithScript{
 			OutPoint: op,
 			PkScript: addrScript,
 		})
 	}
 
 	s.clientMtx.Lock()
-	newRescan := neutrino.NewRescan(
-		&neutrino.RescanChainSource{
+	newRescan := spv.NewRescan(
+		&spv.RescanChainSource{
 			ChainService: s.CS,
 		},
-		neutrino.NotificationHandlers(rpcclient.NotificationHandlers{
+		spv.NotificationHandlers(rpcclient.NotificationHandlers{
 			OnBlockConnected:         s.onBlockConnected,
 			OnFilteredBlockConnected: s.onFilteredBlockConnected,
 			OnBlockDisconnected:      s.onBlockDisconnected,
 		}),
-		neutrino.StartBlock(&headerfs.BlockStamp{Hash: *startHash}),
-		neutrino.StartTime(s.startTime),
-		neutrino.QuitChan(s.rescanQuit),
-		neutrino.WatchAddrs(addrs...),
-		neutrino.WatchInputs(inputsToWatch...),
+		spv.StartBlock(&headerfs.BlockStamp{Hash: *startHash}),
+		spv.StartTime(s.startTime),
+		spv.QuitChan(s.rescanQuit),
+		spv.WatchAddrs(addrs...),
+		spv.WatchInputs(inputsToWatch...),
 	)
 	s.rescan = newRescan
 	s.rescanErr = s.rescan.Start()
@@ -455,7 +455,7 @@ func (s *NeutrinoClient) NotifyReceived(addrs []ltcutil.Address) error {
 	// addresses to the watch list.
 	if s.scanning {
 		s.clientMtx.Unlock()
-		return s.rescan.Update(neutrino.AddAddrs(addrs...))
+		return s.rescan.Update(spv.AddAddrs(addrs...))
 	}
 
 	s.rescanQuit = make(chan struct{})
@@ -467,18 +467,18 @@ func (s *NeutrinoClient) NotifyReceived(addrs []ltcutil.Address) error {
 	s.lastFilteredBlockHeader = nil
 
 	// Rescan with just the specified addresses.
-	newRescan := neutrino.NewRescan(
-		&neutrino.RescanChainSource{
+	newRescan := spv.NewRescan(
+		&spv.RescanChainSource{
 			ChainService: s.CS,
 		},
-		neutrino.NotificationHandlers(rpcclient.NotificationHandlers{
+		spv.NotificationHandlers(rpcclient.NotificationHandlers{
 			OnBlockConnected:         s.onBlockConnected,
 			OnFilteredBlockConnected: s.onFilteredBlockConnected,
 			OnBlockDisconnected:      s.onBlockDisconnected,
 		}),
-		neutrino.StartTime(s.startTime),
-		neutrino.QuitChan(s.rescanQuit),
-		neutrino.WatchAddrs(addrs...),
+		spv.StartTime(s.startTime),
+		spv.QuitChan(s.rescanQuit),
+		spv.WatchAddrs(addrs...),
 	)
 	s.rescan = newRescan
 	s.rescanErr = s.rescan.Start()

@@ -52,7 +52,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	pb "github.com/ltcsuite/ltcwallet/rpc/walletrpc"
+	pb "github.com/dcrlabs/ltcwallet/rpc/walletrpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -394,7 +394,7 @@ Full instructions for this procedure can be found
 Generate Python stubs from the `.proto`:
 
 ```bash
-$ protoc -I /path/to/ltcsuite/ltcwallet/rpc --python_out=. --grpc_out=. \
+$ protoc -I /path/to/dcrlabs/ltcwallet/rpc --python_out=. --grpc_out=. \
   --plugin=protoc-gen-grpc=$(which grpc_python_plugin) \
   /path/to/ltcwallet/rpc/api.proto
 ```

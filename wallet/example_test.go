@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 // defaultDBTimeout specifies the timeout value when opening the wallet

@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/lnd/clock"
 	"github.com/ltcsuite/ltcd/blockchain"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 const (

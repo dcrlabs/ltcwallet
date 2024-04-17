@@ -13,7 +13,7 @@ import (
 	"io"
 	"runtime/debug"
 
-	"github.com/ltcsuite/ltcwallet/internal/zero"
+	"github.com/dcrlabs/ltcwallet/internal/zero"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/scrypt"
 )

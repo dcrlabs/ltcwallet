@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
 )
 
 // TestCreateWatchingOnly checks that we can construct a watching-only

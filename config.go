@@ -16,14 +16,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/internal/cfgutil"
+	"github.com/dcrlabs/ltcwallet/internal/legacy/keystore"
+	"github.com/dcrlabs/ltcwallet/netparams"
+	"github.com/dcrlabs/ltcwallet/spv"
+	"github.com/dcrlabs/ltcwallet/wallet"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
-	"github.com/ltcsuite/ltcwallet/internal/cfgutil"
-	"github.com/ltcsuite/ltcwallet/internal/legacy/keystore"
-	"github.com/ltcsuite/ltcwallet/netparams"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/neutrino"
 )
 
 const (
@@ -249,10 +249,10 @@ func parseAndSetDebugLevels(debugLevel string) error {
 // line options.
 //
 // The configuration proceeds as follows:
-//      1) Start with a default config with sane settings
-//      2) Pre-parse the command line to check for an alternative config file
-//      3) Load configuration file overwriting defaults with any specified options
-//      4) Parse CLI options and overwrite/add any specified options
+//  1. Start with a default config with sane settings
+//  2. Pre-parse the command line to check for an alternative config file
+//  3. Load configuration file overwriting defaults with any specified options
+//  4. Parse CLI options and overwrite/add any specified options
 //
 // The above results in btcwallet functioning properly without any config
 // settings while still allowing the user to override settings with config files
@@ -274,9 +274,9 @@ func loadConfig() (*config, []string, error) {
 		UseSPV:                 false,
 		AddPeers:               []string{},
 		ConnectPeers:           []string{},
-		MaxPeers:               neutrino.MaxPeers,
-		BanDuration:            neutrino.BanDuration,
-		BanThreshold:           neutrino.BanThreshold,
+		MaxPeers:               spv.MaxPeers,
+		BanDuration:            spv.BanDuration,
+		BanThreshold:           spv.BanThreshold,
 		DBTimeout:              wallet.DefaultDBTimeout,
 	}
 
@@ -546,9 +546,9 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	if cfg.UseSPV {
-		neutrino.MaxPeers = cfg.MaxPeers
-		neutrino.BanDuration = cfg.BanDuration
-		neutrino.BanThreshold = cfg.BanThreshold
+		spv.MaxPeers = cfg.MaxPeers
+		spv.BanDuration = cfg.BanDuration
+		spv.BanThreshold = cfg.BanThreshold
 	} else {
 		if cfg.RPCConnect == "" {
 			cfg.RPCConnect = net.JoinHostPort("localhost", activeNet.RPCClientPort)

@@ -11,15 +11,15 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/internal/legacy/keystore"
+	"github.com/dcrlabs/ltcwallet/internal/prompt"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/legacy/keystore"
-	"github.com/ltcsuite/ltcwallet/internal/prompt"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
 )
 
 // networkDir returns the directory name of a network directory to hold wallet

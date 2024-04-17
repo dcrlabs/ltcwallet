@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/ltcwallet/walletdb/migration"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/walletdb/migration"
 )
 
 type mockMigrationManager struct {

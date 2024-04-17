@@ -14,11 +14,11 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/rpc/legacyrpc"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/neutrino"
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/rpc/legacyrpc"
+	"github.com/dcrlabs/ltcwallet/spv"
+	"github.com/dcrlabs/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 )
 
 var (
@@ -158,7 +158,7 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 
 		if cfg.UseSPV {
 			var (
-				chainService *neutrino.ChainService
+				chainService *spv.ChainService
 				spvdb        walletdb.DB
 			)
 			netDir := networkDir(cfg.AppDataDir.Value, activeNet.Params)
@@ -171,8 +171,8 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 				continue
 			}
 			defer spvdb.Close()
-			chainService, err = neutrino.NewChainService(
-				neutrino.Config{
+			chainService, err = spv.NewChainService(
+				spv.Config{
 					DataDir:      netDir,
 					Database:     spvdb,
 					ChainParams:  *activeNet.Params,

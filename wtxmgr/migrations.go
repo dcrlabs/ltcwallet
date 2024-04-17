@@ -1,8 +1,8 @@
 package wtxmgr
 
 import (
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/ltcwallet/walletdb/migration"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/walletdb/migration"
 )
 
 // versions is a list of the different database versions. The last entry should

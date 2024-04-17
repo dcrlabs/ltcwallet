@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
 )
 
 // createTx is a helper method to create random transactions that spend

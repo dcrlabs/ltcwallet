@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
 	"github.com/stretchr/testify/require"
 )
 

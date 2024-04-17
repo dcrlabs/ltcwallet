@@ -8,10 +8,10 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
 )
 
 // TestFetchInputInfo checks that the wallet can gather information about an

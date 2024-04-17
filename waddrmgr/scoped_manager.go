@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/dcrlabs/ltcwallet/internal/zero"
+	"github.com/dcrlabs/ltcwallet/netparams"
+	"github.com/dcrlabs/ltcwallet/spv/cache/lru"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/btcec/v2"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/zero"
-	"github.com/ltcsuite/ltcwallet/netparams"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/neutrino/cache/lru"
 )
 
 // HDVersion represents the different supported schemes of hierarchical
@@ -157,6 +157,13 @@ var (
 		Coin:    0,
 	}
 
+	// KeyScopeBIP0086 is the key scope for BIP0086 derivation. BIP0086
+	// will be used to derive all p2tr addresses.
+	KeyScopeBIP0086 = KeyScope{
+		Purpose: 86,
+		Coin:    2,
+	}
+
 	// KeyScopeBIP0044 is the key scope for BIP0044 derivation. Legacy
 	// wallets will only be able to use this key scope, and no keys beyond
 	// it.
@@ -170,6 +177,7 @@ var (
 	DefaultKeyScopes = []KeyScope{
 		KeyScopeBIP0049Plus,
 		KeyScopeBIP0084,
+		KeyScopeBIP0086,
 		KeyScopeBIP0044,
 	}
 
@@ -184,6 +192,10 @@ var (
 		KeyScopeBIP0084: {
 			ExternalAddrType: WitnessPubKey,
 			InternalAddrType: WitnessPubKey,
+		},
+		KeyScopeBIP0086: {
+			ExternalAddrType: TaprootPubKey,
+			InternalAddrType: TaprootPubKey,
 		},
 		KeyScopeBIP0044: {
 			InternalAddrType: PubKeyHash,
@@ -2308,7 +2320,7 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 	switch net {
 	case wire.MainNet:
 		switch s.scope {
-		case KeyScopeBIP0044:
+		case KeyScopeBIP0044, KeyScopeBIP0086:
 			version = HDVersionMainNetBIP0044
 		case KeyScopeBIP0049Plus:
 			version = HDVersionMainNetBIP0049
@@ -2318,11 +2330,11 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 			return nil, fmt.Errorf("unsupported scope %v", s.scope)
 		}
 
-	case wire.TestNet, wire.TestNet3,
+	case wire.TestNet, wire.TestNet4,
 		netparams.SigNetWire(s.rootManager.ChainParams()):
 
 		switch s.scope {
-		case KeyScopeBIP0044:
+		case KeyScopeBIP0044, KeyScopeBIP0086:
 			version = HDVersionTestNetBIP0044
 		case KeyScopeBIP0049Plus:
 			version = HDVersionTestNetBIP0049
@@ -2334,7 +2346,7 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 
 	case wire.SimNet:
 		switch s.scope {
-		case KeyScopeBIP0044:
+		case KeyScopeBIP0044, KeyScopeBIP0086:
 			version = HDVersionSimNetBIP0044
 		// We use the mainnet versions for simnet keys when the keys
 		// belong to a key scope which simnet doesn't have a defined

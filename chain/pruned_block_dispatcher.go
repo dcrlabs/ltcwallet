@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/spv/query"
 	"github.com/ltcsuite/lnd/ticker"
 	"github.com/ltcsuite/ltcd/blockchain"
 	"github.com/ltcsuite/ltcd/btcjson"
@@ -18,7 +19,6 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/peer"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/neutrino/query"
 )
 
 const (

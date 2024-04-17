@@ -12,6 +12,11 @@ import (
 
 	"golang.org/x/crypto/ssh/terminal"
 
+	"github.com/dcrlabs/ltcwallet/internal/cfgutil"
+	"github.com/dcrlabs/ltcwallet/netparams"
+	"github.com/dcrlabs/ltcwallet/wallet/txauthor"
+	"github.com/dcrlabs/ltcwallet/wallet/txrules"
+	"github.com/dcrlabs/ltcwallet/wallet/txsizes"
 	"github.com/jessevdk/go-flags"
 	"github.com/ltcsuite/ltcd/btcjson"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
@@ -19,11 +24,6 @@ import (
 	"github.com/ltcsuite/ltcd/rpcclient"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/cfgutil"
-	"github.com/ltcsuite/ltcwallet/netparams"
-	"github.com/ltcsuite/ltcwallet/wallet/txauthor"
-	"github.com/ltcsuite/ltcwallet/wallet/txrules"
-	"github.com/ltcsuite/ltcwallet/wallet/txsizes"
 )
 
 var (

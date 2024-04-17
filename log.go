@@ -11,14 +11,14 @@ import (
 	"path/filepath"
 
 	"github.com/btcsuite/btclog"
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/rpc/legacyrpc"
+	"github.com/dcrlabs/ltcwallet/rpc/rpcserver"
+	"github.com/dcrlabs/ltcwallet/spv"
+	"github.com/dcrlabs/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/jrick/logrotate/rotator"
 	"github.com/ltcsuite/ltcd/rpcclient"
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/rpc/legacyrpc"
-	"github.com/ltcsuite/ltcwallet/rpc/rpcserver"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
-	"github.com/ltcsuite/neutrino"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -70,7 +70,7 @@ func init() {
 	rpcclient.UseLogger(chainLog)
 	rpcserver.UseLogger(grpcLog)
 	legacyrpc.UseLogger(legacyRPCLog)
-	neutrino.UseLogger(btcnLog)
+	spv.UseLogger(btcnLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.

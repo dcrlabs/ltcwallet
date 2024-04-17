@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/dcrlabs/ltcwallet/internal/zero"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/btcec/v2"
+	"github.com/ltcsuite/ltcd/btcec/v2/schnorr"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
-	"github.com/ltcsuite/ltcwallet/internal/zero"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 // AddressType represents the various address types waddrmgr is currently able
@@ -47,6 +48,19 @@ const (
 	// WitnessPubKey represents a p2wkh (pay-to-witness-key-hash) address
 	// type.
 	WitnessPubKey
+
+	// WitnessScript represents a p2wsh (pay-to-witness-script-hash) address
+	// type.
+	WitnessScript
+
+	// TaprootPubKey represents a p2tr (pay-to-taproot) address type that
+	// uses BIP-0086 (for the derivation path and for calculating the tap
+	// root hash/tweak).
+	TaprootPubKey
+
+	// TaprootScript represents a p2tr (pay-to-taproot) address type that
+	// commits to a script and not just a single key.
+	TaprootScript
 )
 
 // ManagedAddress is an interface that provides acces to information regarding
@@ -406,6 +420,15 @@ func newManagedAddressWithoutPrivKey(m *ScopedKeyManager,
 	case WitnessPubKey:
 		address, err = ltcutil.NewAddressWitnessPubKeyHash(
 			pubKeyHash, m.rootManager.chainParams,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+	case TaprootPubKey:
+		tapKey := txscript.ComputeTaprootKeyNoScript(pubKey)
+		address, err = ltcutil.NewAddressTaproot(
+			schnorr.SerializePubKey(tapKey), m.rootManager.chainParams,
 		)
 		if err != nil {
 			return nil, err

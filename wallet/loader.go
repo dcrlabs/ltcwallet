@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/internal/prompt"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
-	"github.com/ltcsuite/ltcwallet/internal/prompt"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 const (

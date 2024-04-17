@@ -7,8 +7,8 @@ package waddrmgr
 import (
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 // BlockStamp defines a block (by height and a unique hash) and is used to mark

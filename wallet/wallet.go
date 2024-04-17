@@ -16,6 +16,13 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wallet/txauthor"
+	"github.com/dcrlabs/ltcwallet/wallet/txrules"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/walletdb/migration"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/blockchain"
 	"github.com/ltcsuite/ltcd/btcec/v2"
 	"github.com/ltcsuite/ltcd/btcjson"
@@ -25,13 +32,6 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wallet/txauthor"
-	"github.com/ltcsuite/ltcwallet/wallet/txrules"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/ltcwallet/walletdb/migration"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
 )
 
 const (
@@ -773,13 +773,13 @@ func (w *Wallet) recovery(chainClient chain.Interface,
 // previously used addresses for a particular account derivation path. At a high
 // level, the algorithm works as follows:
 //
-//  1) Ensure internal and external branch horizons are fully expanded.
-//  2) Filter the entire range of blocks, stopping if a non-zero number of
-//       address are contained in a particular block.
-//  3) Record all internal and external addresses found in the block.
-//  4) Record any outpoints found in the block that should be watched for spends
-//  5) Trim the range of blocks up to and including the one reporting the addrs.
-//  6) Repeat from (1) if there are still more blocks in the range.
+//  1. Ensure internal and external branch horizons are fully expanded.
+//  2. Filter the entire range of blocks, stopping if a non-zero number of
+//     address are contained in a particular block.
+//  3. Record all internal and external addresses found in the block.
+//  4. Record any outpoints found in the block that should be watched for spends
+//  5. Trim the range of blocks up to and including the one reporting the addrs.
+//  6. Repeat from (1) if there are still more blocks in the range.
 //
 // TODO(conner): parallelize/pipeline/cache intermediate network requests
 func (w *Wallet) recoverScopedAddresses(

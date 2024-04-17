@@ -7,7 +7,7 @@ package zero_test
 import (
 	"testing"
 
-	. "github.com/ltcsuite/ltcwallet/internal/zero"
+	. "github.com/dcrlabs/ltcwallet/internal/zero"
 )
 
 var (

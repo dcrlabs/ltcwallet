@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/internal/zero"
+	"github.com/dcrlabs/ltcwallet/snacl"
+	"github.com/dcrlabs/ltcwallet/spv/cache/lru"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
-	"github.com/ltcsuite/ltcwallet/internal/zero"
-	"github.com/ltcsuite/ltcwallet/snacl"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/neutrino/cache/lru"
 )
 
 const (
@@ -1478,7 +1478,8 @@ func deriveCoinTypeKey(masterNode *hdkeychain.ExtendedKey,
 // hierarchy described by BIP0044 given the master node.
 //
 // In particular this is the hierarchical deterministic extended key path:
-//   m/purpose'/<coin type>'/<account>'
+//
+//	m/purpose'/<coin type>'/<account>'
 func deriveAccountKey(coinTypeKey *hdkeychain.ExtendedKey,
 	account uint32) (*hdkeychain.ExtendedKey, error) {
 
@@ -1501,7 +1502,8 @@ func deriveAccountKey(coinTypeKey *hdkeychain.ExtendedKey,
 // already derived accordingly.
 //
 // In particular this is the hierarchical deterministic extended key path:
-//   m/purpose'/<coin type>'/<account>'/<branch>
+//
+//	m/purpose'/<coin type>'/<account>'/<branch>
 //
 // The branch is 0 for external addresses and 1 for internal addresses.
 func checkBranchKeys(acctKey *hdkeychain.ExtendedKey) error {
