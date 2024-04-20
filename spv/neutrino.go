@@ -15,6 +15,7 @@ import (
 
 	"github.com/dcrlabs/ltcwallet/spv/banman"
 	"github.com/dcrlabs/ltcwallet/spv/blockntfns"
+	"github.com/dcrlabs/ltcwallet/spv/cache"
 	"github.com/dcrlabs/ltcwallet/spv/cache/lru"
 	"github.com/dcrlabs/ltcwallet/spv/filterdb"
 	"github.com/dcrlabs/ltcwallet/spv/headerfs"
@@ -166,7 +167,7 @@ type ServerPeer struct {
 	connReq        *connmgr.ConnReq
 	server         *ChainService
 	persistent     bool
-	knownAddresses *lru.Cache
+	knownAddresses *lru.Cache[string, *cachedAddr]
 	quit           chan struct{}
 
 	// The following map of subcribers is used to subscribe to messages
@@ -188,7 +189,7 @@ func NewServerPeer(s *ChainService, isPersistent bool) *ServerPeer {
 	return &ServerPeer{
 		server:           s,
 		persistent:       isPersistent,
-		knownAddresses:   lru.NewCache(5000),
+		knownAddresses:   lru.NewCache[string, *cachedAddr](5000),
 		quit:             make(chan struct{}),
 		recvSubscribers:  make(map[spMsgSubscription]struct{}),
 		recvSubscribers2: make(map[msgSubscription]struct{}),
@@ -589,7 +590,7 @@ type Config struct {
 
 	// BlockCache is an LRU block cache. If none is provided then the a new
 	// one will be instantiated.
-	BlockCache *lru.Cache
+	BlockCache *lru.Cache[wire.InvVect, *cache.CacheableBlock]
 
 	// BlockCacheSize indicates the size (in bytes) of blocks the block
 	// cache will hold in memory at most. If a BlockCache is provided then
@@ -641,8 +642,8 @@ type ChainService struct { // nolint:maligned
 	RegFilterHeaders *headerfs.FilterHeaderStore
 	persistToDisk    bool
 
-	FilterCache *lru.Cache
-	BlockCache  *lru.Cache
+	FilterCache *lru.Cache[cache.FilterCacheKey, *cache.CacheableFilter]
+	BlockCache  *lru.Cache[wire.InvVect, *cache.CacheableBlock]
 
 	// queryPeers will be called to send messages to one or more peers,
 	// expecting a response.
@@ -766,7 +767,9 @@ func NewChainService(cfg Config) (*ChainService, error) {
 	if cfg.FilterCacheSize != 0 {
 		filterCacheSize = cfg.FilterCacheSize
 	}
-	s.FilterCache = lru.NewCache(filterCacheSize)
+	s.FilterCache = lru.NewCache[cache.FilterCacheKey, *cache.CacheableFilter](
+		filterCacheSize,
+	)
 
 	if cfg.BlockCache != nil {
 		s.BlockCache = cfg.BlockCache
@@ -775,7 +778,9 @@ func NewChainService(cfg Config) (*ChainService, error) {
 		if cfg.BlockCacheSize != 0 {
 			blockCacheSize = cfg.BlockCacheSize
 		}
-		s.BlockCache = lru.NewCache(blockCacheSize)
+		s.BlockCache = lru.NewCache[wire.InvVect, *cache.CacheableBlock](
+			blockCacheSize,
+		)
 	}
 
 	s.BlockHeaders, err = headerfs.NewBlockHeaderStore(

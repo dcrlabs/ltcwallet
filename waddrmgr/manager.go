@@ -603,12 +603,14 @@ func (m *Manager) NewScopedKeyManager(ns walletdb.ReadWriteBucket,
 	// Finally, we'll register this new scoped manager with the root
 	// manager.
 	m.scopedManagers[scope] = &ScopedKeyManager{
-		scope:        scope,
-		addrSchema:   addrSchema,
-		rootManager:  m,
-		addrs:        make(map[addrKey]ManagedAddress),
-		acctInfo:     make(map[uint32]*accountInfo),
-		privKeyCache: lru.NewCache(defaultPrivKeyCacheSize),
+		scope:       scope,
+		addrSchema:  addrSchema,
+		rootManager: m,
+		addrs:       make(map[addrKey]ManagedAddress),
+		acctInfo:    make(map[uint32]*accountInfo),
+		privKeyCache: lru.NewCache[DerivationPath, *cachedKey](
+			defaultPrivKeyCacheSize,
+		),
 	}
 	m.externalAddrSchemas[addrSchema.ExternalAddrType] = append(
 		m.externalAddrSchemas[addrSchema.ExternalAddrType], scope,
@@ -1624,11 +1626,13 @@ func loadManager(ns walletdb.ReadBucket, pubPassphrase []byte,
 		}
 
 		scopedManagers[scope] = &ScopedKeyManager{
-			scope:        scope,
-			addrSchema:   *scopeSchema,
-			addrs:        make(map[addrKey]ManagedAddress),
-			acctInfo:     make(map[uint32]*accountInfo),
-			privKeyCache: lru.NewCache(defaultPrivKeyCacheSize),
+			scope:      scope,
+			addrSchema: *scopeSchema,
+			addrs:      make(map[addrKey]ManagedAddress),
+			acctInfo:   make(map[uint32]*accountInfo),
+			privKeyCache: lru.NewCache[DerivationPath, *cachedKey](
+				defaultPrivKeyCacheSize,
+			),
 		}
 
 		return nil

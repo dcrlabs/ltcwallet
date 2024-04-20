@@ -192,7 +192,9 @@ func TestCacheBigEnoughHoldsAllFilter(t *testing.T) {
 	b3, f3, s3 := genRandFilter(100, t)
 
 	cs := &ChainService{
-		FilterCache: lru.NewCache(s1 + s2 + s3),
+		FilterCache: lru.NewCache[cache.FilterCacheKey, *cache.CacheableFilter](
+			s1 + s2 + s3,
+		),
 	}
 
 	// Insert those filters into the cache making sure nothing gets evicted.
@@ -226,7 +228,9 @@ func TestBigFilterEvictsEverything(t *testing.T) {
 	b3, f3, s3 := genRandFilter(10, t)
 
 	cs := &ChainService{
-		FilterCache: lru.NewCache(s3),
+		FilterCache: lru.NewCache[cache.FilterCacheKey, *cache.CacheableFilter](
+			s3,
+		),
 	}
 
 	// Insert the smaller filters.
@@ -276,7 +280,9 @@ func TestBlockCache(t *testing.T) {
 	// Set up a ChainService with a BlockCache that can fit the first half
 	// of the blocks.
 	cs := &ChainService{
-		BlockCache:   lru.NewCache(size),
+		BlockCache: lru.NewCache[wire.InvVect, *cache.CacheableBlock](
+			size,
+		),
 		BlockHeaders: headers,
 		chainParams: chaincfg.Params{
 			PowLimit: maxPowLimit,
