@@ -26,10 +26,35 @@ require (
 	google.golang.org/grpc v1.38.0
 )
 
+require (
+	github.com/aead/siphash v1.0.1 // indirect
+	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
+	github.com/btcsuite/golangcrypto v0.0.0-20150304025918-53f62d9b43e8 // indirect
+	github.com/dchest/siphash v1.2.2 // indirect
+	github.com/decred/dcrd/crypto/blake256 v1.0.0 // indirect
+	github.com/decred/dcrd/lru v1.0.0 // indirect
+	github.com/gcash/bchd v0.18.1 // indirect
+	github.com/gcash/bchlog v0.0.0-20180913005452-b4f036f92fa6 // indirect
+	github.com/gcash/bchutil v0.0.0-20210113190856-6ea28dff4000 // indirect
+	github.com/gcash/bchwallet v0.8.3-0.20210524112536-14ca25bc6549 // indirect
+	github.com/gcash/bchwallet/walletdb v0.0.0-20210524044131-61bcca2ae6f9 // indirect
+	github.com/kkdai/bstream v1.0.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/zquestz/grab v0.0.0-20190224022517-abcee96e61b1 // indirect
+	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/term v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
+	google.golang.org/genproto v0.0.0-20210521181308-5ccab8a35a9a // indirect
+	google.golang.org/protobuf v1.26.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	lukechampine.com/blake3 v1.2.1 // indirect
+)
+
 // The old version of ginko that's used in btcd imports an ancient version of
 // gopkg.in/fsnotify.v1 that isn't go mod compatible. We fix that import error
 // by replacing ginko (which is only a test library anyway) with a more recent
 // version.
 replace github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.14.2
 
-go 1.16
+go 1.18
