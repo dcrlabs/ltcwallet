@@ -29,8 +29,12 @@ func TestBlockFilterCaches(t *testing.T) {
 
 	// Initialize all types of caches we want to test, for both filters and
 	// blocks. Currently the LRU cache is the only implementation.
-	filterCaches := []cache.Cache{lru.NewCache(cacheSize)}
-	blockCaches := []cache.Cache{lru.NewCache(cacheSize)}
+	filterCaches := []cache.Cache[cache.FilterCacheKey, *cache.CacheableFilter]{
+		lru.NewCache[cache.FilterCacheKey, *cache.CacheableFilter](cacheSize),
+	}
+	blockCaches := []cache.Cache[wire.InvVect, *cache.CacheableBlock]{
+		lru.NewCache[wire.InvVect, *cache.CacheableBlock](cacheSize),
+	}
 
 	// Generate a list of hashes, filters and blocks that we will use as
 	// cache keys an values.
@@ -89,7 +93,7 @@ func TestBlockFilterCaches(t *testing.T) {
 			}
 
 			// Ensure we got the correct filter.
-			filter := e.(*cache.CacheableFilter).Filter
+			filter := e.Filter
 			if filter != filters[i] {
 				t.Fatalf("Filters not equal: %v vs %v ",
 					filter, filters[i])
@@ -107,7 +111,7 @@ func TestBlockFilterCaches(t *testing.T) {
 			}
 
 			// Ensure it is the same block.
-			block := b.(*cache.CacheableBlock).Block
+			block := b.Block
 			if block != blocks[i] {
 				t.Fatalf("Not equal: %v vs %v ",
 					block, blocks[i])
