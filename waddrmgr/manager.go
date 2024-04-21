@@ -647,6 +647,15 @@ func (m *Manager) ActiveScopedKeyManagers() []*ScopedKeyManager {
 
 	var scopedManagers []*ScopedKeyManager
 	for _, smgr := range m.scopedManagers {
+		// Added for v9 DB upgrade. New key scopes with correct coin type IDs
+		// don't have default accounts until the first time the user unlocks the
+		// wallet. As of now, this method is only used in (*Wallet).recovery,
+		// where subsequent calls to e.g. (*RecoveryManager).Resurrect and
+		// (*Wallet).recoverScopedAddresses expect a default account to be
+		// initialized.
+		if len(smgr.acctInfo) == 0 {
+			continue
+		}
 		scopedManagers = append(scopedManagers, smgr)
 	}
 
@@ -1181,7 +1190,28 @@ func (m *Manager) Unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	return m.unlock(ns, passphrase)
+}
 
+// UnlockAndEnsureV9Migration does Unlock and then ensures that the V9
+// upgrade has been applied. Use NeedsV9Migration to see whether this
+// method is necessary to call over a normal Unlock.
+func (m *Manager) UnlockAndEnsureV9Migration(ns walletdb.ReadWriteBucket, passphrase []byte) error {
+	// A watching-only address manager can't be unlocked.
+	if m.watchingOnly {
+		return managerError(ErrWatchingOnly, errWatchingOnly, nil)
+	}
+
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	if err := m.unlock(ns, passphrase); err != nil {
+		return err
+	}
+	return m.ensureV9CoinTypeUpgrade(ns)
+}
+
+// unlock unlocks the wallet. unlock must be called with the m.mtx locked.
+func (m *Manager) unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 	// Avoid actually unlocking if the manager is already unlocked
 	// and the passphrases match.
 	if !m.locked {
@@ -1288,6 +1318,65 @@ func (m *Manager) Unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 	m.hashedPrivPassphrase = sha512.Sum512(saltedPassphrase)
 	zero.Bytes(saltedPassphrase)
 	return nil
+}
+
+// ensureV9CoinTypeUpgrade should be called with the mtx locked and should not
+// be called on a watching-only manager.
+func (m *Manager) ensureV9CoinTypeUpgrade(ns walletdb.ReadWriteBucket) error {
+	for _, scope := range litecoinKeyScopes {
+		mgr, found := m.scopedManagers[scope]
+		if !found {
+			return fmt.Errorf("no scoped key manager for scope %s", scope)
+		}
+		if _, found := mgr.acctInfo[DefaultAccountNum]; !found {
+			if err := m.initializeManagerKeyScope(ns, scope); err != nil {
+				return fmt.Errorf("error creating default accounts for key scope %s: %w", scope, err)
+			}
+		}
+	}
+	return nil
+}
+
+// initializeManagerKeyScope initializes the manager's key scope bucket with the
+// coin-type keys and default account.
+func (m *Manager) initializeManagerKeyScope(ns walletdb.ReadWriteBucket, scope KeyScope) error {
+	masterRootPrivEnc, _ := fetchMasterHDKeys(ns)
+	if masterRootPrivEnc == nil {
+		return managerError(ErrWatchingOnly, "", nil)
+	}
+	serializedMasterRootPriv, err :=
+		m.cryptoKeyPriv.Decrypt(masterRootPrivEnc)
+	if err != nil {
+		str := fmt.Sprintf("failed to decrypt master root " +
+			"serialized private key")
+		return managerError(ErrLocked, str, err)
+	}
+	// Now that we know the root priv is within the database,
+	// we'll decode it into a usable object.
+	rootPriv, err := hdkeychain.NewKeyFromString(
+		string(serializedMasterRootPriv),
+	)
+	zero.Bytes(serializedMasterRootPriv)
+	if err != nil {
+		return err
+	}
+	return createManagerKeyScope(ns, scope, rootPriv, m.cryptoKeyPub, m.cryptoKeyPriv)
+}
+
+// NeedsV9Migration checks whether the scoped managers for the new correct v9
+// coin types needs to generate coin-type keys and default accounts.
+func (m *Manager) NeedsV9Migration() bool {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	if m.watchingOnly {
+		return false
+	}
+	for _, scope := range litecoinKeyScopes {
+		if s := m.scopedManagers[scope]; s != nil && len(s.acctInfo) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateAccountName validates the given account name and returns an error, if any.
