@@ -2550,11 +2550,11 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 	switch net {
 	case wire.MainNet:
 		switch s.scope {
-		case KeyScopeBIP0044, KeyScopeBIP0086:
+		case KeyScopeBIP0044, KeyScopeBIP0044WithBitcoinCoinID, KeyScopeBIP0086:
 			version = HDVersionMainNetBIP0044
-		case KeyScopeBIP0049Plus:
+		case KeyScopeBIP0049Plus, KeyScopeBIP0049PlusWithBitcoinCoinID:
 			version = HDVersionMainNetBIP0049
-		case KeyScopeBIP0084:
+		case KeyScopeBIP0084, KeyScopeBIP0084WithBitcoinCoinID:
 			version = HDVersionMainNetBIP0084
 		default:
 			return nil, fmt.Errorf("unsupported scope %v", s.scope)
@@ -2564,11 +2564,11 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 		netparams.SigNetWire(s.rootManager.ChainParams()):
 
 		switch s.scope {
-		case KeyScopeBIP0044, KeyScopeBIP0086:
+		case KeyScopeBIP0044, KeyScopeBIP0044WithBitcoinCoinID, KeyScopeBIP0086:
 			version = HDVersionTestNetBIP0044
-		case KeyScopeBIP0049Plus:
+		case KeyScopeBIP0049Plus, KeyScopeBIP0049PlusWithBitcoinCoinID:
 			version = HDVersionTestNetBIP0049
-		case KeyScopeBIP0084:
+		case KeyScopeBIP0084, KeyScopeBIP0084WithBitcoinCoinID:
 			version = HDVersionTestNetBIP0084
 		default:
 			return nil, fmt.Errorf("unsupported scope %v", s.scope)
@@ -2576,14 +2576,14 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 
 	case wire.SimNet:
 		switch s.scope {
-		case KeyScopeBIP0044, KeyScopeBIP0086:
+		case KeyScopeBIP0044, KeyScopeBIP0044WithBitcoinCoinID, KeyScopeBIP0086:
 			version = HDVersionSimNetBIP0044
 		// We use the mainnet versions for simnet keys when the keys
 		// belong to a key scope which simnet doesn't have a defined
 		// version for.
-		case KeyScopeBIP0049Plus:
+		case KeyScopeBIP0049Plus, KeyScopeBIP0049PlusWithBitcoinCoinID:
 			version = HDVersionMainNetBIP0049
-		case KeyScopeBIP0084:
+		case KeyScopeBIP0084, KeyScopeBIP0084WithBitcoinCoinID:
 			version = HDVersionMainNetBIP0084
 		default:
 			return nil, fmt.Errorf("unsupported scope %v", s.scope)
