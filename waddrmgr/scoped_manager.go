@@ -1,20 +1,22 @@
 package waddrmgr
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"sync"
 
+	"github.com/dcrlabs/ltcwallet/internal/zero"
+	"github.com/dcrlabs/ltcwallet/netparams"
+	"github.com/dcrlabs/ltcwallet/spv/cache/lru"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/btcec/v2"
+	"github.com/ltcsuite/ltcd/btcec/v2/schnorr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/zero"
-	"github.com/ltcsuite/ltcwallet/netparams"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/neutrino/cache/lru"
 )
 
 // HDVersion represents the different supported schemes of hierarchical
@@ -54,9 +56,9 @@ const (
 )
 
 const (
-	// privKeyCacheSize is the default size of the LRU cache that we'll use
-	// to cache private keys to avoid DB and EC operations within the
-	// wallet. With the default sisize, we'll allocate up to 320 KB to
+	// defaultPrivKeyCacheSize is the default size of the LRU cache that
+	// we'll use to cache private keys to avoid DB and EC operations within
+	// the wallet. With the default sisize, we'll allocate up to 320 KB to
 	// caching private keys (ignoring pointer overhead, etc).
 	defaultPrivKeyCacheSize = 10_000
 )
@@ -129,6 +131,31 @@ func (k KeyScope) String() string {
 	return fmt.Sprintf("m/%v'/%v'", k.Purpose, k.Coin)
 }
 
+// Identity is a closure that returns the identifier of an address.
+type Identity func() []byte
+
+// ScriptHashIdentity returns the identity closure for a p2sh script.
+func ScriptHashIdentity(script []byte) Identity {
+	return func() []byte {
+		return ltcutil.Hash160(script)
+	}
+}
+
+// WitnessScriptHashIdentity returns the identity closure for a p2wsh script.
+func WitnessScriptHashIdentity(script []byte) Identity {
+	return func() []byte {
+		digest := sha256.Sum256(script)
+		return digest[:]
+	}
+}
+
+// TaprootIdentity returns the identity closure for a p2tr script.
+func TaprootIdentity(taprootKey *btcec.PublicKey) Identity {
+	return func() []byte {
+		return schnorr.SerializePubKey(taprootKey)
+	}
+}
+
 // ScopeAddrSchema is the address schema of a particular KeyScope. This will be
 // persisted within the database, and will be consulted when deriving any keys
 // for a particular scope to know how to encode the public keys as addresses.
@@ -147,6 +174,14 @@ var (
 	// p2wkh change all change addresses.
 	KeyScopeBIP0049Plus = KeyScope{
 		Purpose: 49,
+		Coin:    2,
+	}
+
+	// KeyScopeBIP0049PlusWithBitcoinCoinID is KeyScopeBIP0049Plus but with the
+	// Bitcoin Coin ID, because when ltcwallet first forked from btcwallet, they
+	// didn't change the ID, so we must look for these too.
+	KeyScopeBIP0049PlusWithBitcoinCoinID = KeyScope{
+		Purpose: 49,
 		Coin:    0,
 	}
 
@@ -154,13 +189,34 @@ var (
 	// will be used to derive all p2wkh addresses.
 	KeyScopeBIP0084 = KeyScope{
 		Purpose: 84,
+		Coin:    2,
+	}
+
+	// KeyScopeBIP0084WithBitcoinCoinID is KeyScopeBIP0084 with the bitcoin
+	// coin ID.
+	KeyScopeBIP0084WithBitcoinCoinID = KeyScope{
+		Purpose: 84,
 		Coin:    0,
+	}
+
+	// KeyScopeBIP0086 is the key scope for BIP0086 derivation. BIP0086
+	// will be used to derive all p2tr addresses.
+	KeyScopeBIP0086 = KeyScope{
+		Purpose: 86,
+		Coin:    2,
 	}
 
 	// KeyScopeBIP0044 is the key scope for BIP0044 derivation. Legacy
 	// wallets will only be able to use this key scope, and no keys beyond
 	// it.
 	KeyScopeBIP0044 = KeyScope{
+		Purpose: 44,
+		Coin:    2,
+	}
+
+	// KeyScopeBIP0044WithBitcoinCoinID is KeyScopeBIP0044 with the bitcoin coin
+	// ID.
+	KeyScopeBIP0044WithBitcoinCoinID = KeyScope{
 		Purpose: 44,
 		Coin:    0,
 	}
@@ -169,8 +225,14 @@ var (
 	// created by the root manager upon initial creation.
 	DefaultKeyScopes = []KeyScope{
 		KeyScopeBIP0049Plus,
+		KeyScopeBIP0084WithBitcoinCoinID,
 		KeyScopeBIP0084,
+		KeyScopeBIP0084WithBitcoinCoinID,
+		KeyScopeBIP0086,
 		KeyScopeBIP0044,
+		KeyScopeBIP0044WithBitcoinCoinID,
+		KeyScopeBIP0049PlusWithBitcoinCoinID,
+		KeyScopeBIP0084WithBitcoinCoinID,
 	}
 
 	// ScopeAddrMap is a map from the default key scopes to the scope
@@ -181,11 +243,27 @@ var (
 			ExternalAddrType: NestedWitnessPubKey,
 			InternalAddrType: WitnessPubKey,
 		},
+		KeyScopeBIP0049PlusWithBitcoinCoinID: {
+			ExternalAddrType: NestedWitnessPubKey,
+			InternalAddrType: WitnessPubKey,
+		},
 		KeyScopeBIP0084: {
 			ExternalAddrType: WitnessPubKey,
 			InternalAddrType: WitnessPubKey,
 		},
+		KeyScopeBIP0084WithBitcoinCoinID: {
+			ExternalAddrType: WitnessPubKey,
+			InternalAddrType: WitnessPubKey,
+		},
+		KeyScopeBIP0086: {
+			ExternalAddrType: TaprootPubKey,
+			InternalAddrType: TaprootPubKey,
+		},
 		KeyScopeBIP0044: {
+			InternalAddrType: PubKeyHash,
+			ExternalAddrType: PubKeyHash,
+		},
+		KeyScopeBIP0044WithBitcoinCoinID: {
 			InternalAddrType: PubKeyHash,
 			ExternalAddrType: PubKeyHash,
 		},
@@ -207,6 +285,18 @@ var (
 		InternalAccount: ImportedAddrAccount,
 	}
 )
+
+// IsDefaultScope return true if the given scope belongs to the list of default
+// scopes.
+func IsDefaultScope(scope KeyScope) bool {
+	for _, defaultScope := range DefaultKeyScopes {
+		if defaultScope == scope {
+			return true
+		}
+	}
+
+	return false
+}
 
 // ScopedKeyManager is a sub key manager under the main root key manager. The
 // root key manager will handle the root HD key (m/), while each sub scoped key
@@ -247,7 +337,7 @@ type ScopedKeyManager struct {
 	// privKeyCache stores the set of private keys that have been marked as
 	// items to be cached to allow us to avoid the database and EC
 	// operations each time a key need to be obtained.
-	privKeyCache *lru.Cache
+	privKeyCache *lru.Cache[DerivationPath, *cachedKey]
 
 	mtx sync.RWMutex
 }
@@ -304,7 +394,7 @@ func (s *ScopedKeyManager) keyToManaged(derivedKey *hdkeychain.ExtendedKey,
 	// depending on whether the passed key is private.  Also, zero the key
 	// after creating the managed address from it.
 	ma, err := newManagedAddressFromExtKey(
-		s, derivationPath, derivedKey, addrType,
+		s, derivationPath, derivedKey, addrType, acctInfo,
 	)
 	defer derivedKey.Zero()
 	if err != nil {
@@ -558,20 +648,14 @@ func (s *ScopedKeyManager) AccountProperties(ns walletdb.ReadBucket,
 		// the account public key consistent with what the caller
 		// provided. Note that his is only done for the default key
 		// scopes, as we only know the HD versions for those.
-		isDefaultKeyScope := false
-		for _, scope := range DefaultKeyScopes {
-			if s.scope == scope {
-				isDefaultKeyScope = true
-				break
-			}
-		}
+		isDefaultKeyScope := IsDefaultScope(s.scope)
 		if acctInfo.acctType == accountDefault && isDefaultKeyScope {
 			props.AccountPubKey, err = s.cloneKeyWithVersion(
 				acctInfo.acctKeyPub,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve "+
-					"account public key: %v", err)
+					"account public key: %w", err)
 			}
 		}
 	} else {
@@ -598,7 +682,7 @@ func (s *ScopedKeyManager) AccountProperties(ns walletdb.ReadBucket,
 // to be used frequently. We use this wrapper struct to be able too report the
 // size of a given element to the cache.
 type cachedKey struct {
-	key *btcec.PrivateKey
+	key btcec.PrivateKey
 }
 
 // Size returns the size of this element. Rather than have the cache limit
@@ -626,7 +710,8 @@ func (s *ScopedKeyManager) DeriveFromKeyPathCache(
 	// is here, then we don't need to do anything further.
 	privKeyVal, err := s.privKeyCache.Get(kp)
 	if err == nil {
-		return privKeyVal.(*cachedKey).key, nil
+		privKey := privKeyVal.key
+		return &privKey, nil
 	}
 
 	// If the key isn't already in the cache, then we'll try to look up the
@@ -657,7 +742,7 @@ func (s *ScopedKeyManager) DeriveFromKeyPathCache(
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.privKeyCache.Put(kp, &cachedKey{key: privKey})
+	_, err = s.privKeyCache.Put(kp, &cachedKey{key: *privKey})
 	if err != nil {
 		return nil, err
 	}
@@ -790,7 +875,9 @@ func (s *ScopedKeyManager) importedAddressRowToManaged(row *dbImportedAddressRow
 
 // scriptAddressRowToManaged returns a new managed address based on script
 // address data loaded from the database.
-func (s *ScopedKeyManager) scriptAddressRowToManaged(row *dbScriptAddressRow) (ManagedAddress, error) {
+func (s *ScopedKeyManager) scriptAddressRowToManaged(
+	row *dbScriptAddressRow) (ManagedAddress, error) {
+
 	// Use the crypto public key to decrypt the imported script hash.
 	scriptHash, err := s.rootManager.cryptoKeyPub.Decrypt(row.encryptedHash)
 	if err != nil {
@@ -799,6 +886,24 @@ func (s *ScopedKeyManager) scriptAddressRowToManaged(row *dbScriptAddressRow) (M
 	}
 
 	return newScriptAddress(s, row.account, scriptHash, row.encryptedScript)
+}
+
+// witnessScriptAddressRowToManaged returns a new managed address based on
+// witness script address data loaded from the database.
+func (s *ScopedKeyManager) witnessScriptAddressRowToManaged(
+	row *dbWitnessScriptAddressRow) (ManagedAddress, error) {
+
+	// Use the crypto public key to decrypt the imported script hash.
+	scriptHash, err := s.rootManager.cryptoKeyPub.Decrypt(row.encryptedHash)
+	if err != nil {
+		str := "failed to decrypt imported witness script hash"
+		return nil, managerError(ErrCrypto, str, err)
+	}
+
+	return newWitnessScriptAddress(
+		s, row.account, scriptHash, row.encryptedScript,
+		row.witnessVersion, row.isSecretScript,
+	)
 }
 
 // rowInterfaceToManaged returns a new managed address based on the given
@@ -818,6 +923,9 @@ func (s *ScopedKeyManager) rowInterfaceToManaged(ns walletdb.ReadBucket,
 
 	case *dbScriptAddressRow:
 		return s.scriptAddressRowToManaged(row)
+
+	case *dbWitnessScriptAddressRow:
+		return s.witnessScriptAddressRowToManaged(row)
 	}
 
 	str := fmt.Sprintf("unsupported address type %T", rowInterface)
@@ -939,7 +1047,8 @@ func (s *ScopedKeyManager) accountAddrType(acctInfo *accountInfo,
 //
 // This function MUST be called with the manager lock held for writes.
 func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
-	account uint32, numAddresses uint32, internal bool) ([]ManagedAddress, error) {
+	account uint32, numAddresses uint32, internal bool) ([]ManagedAddress,
+	error) {
 
 	// The next address can only be generated for accounts that have
 	// already been created.
@@ -1021,10 +1130,11 @@ func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
 		// proper derivation path so this information can be available
 		// to callers.
 		derivationPath := DerivationPath{
-			InternalAccount: account,
-			Account:         acctKey.ChildIndex(),
-			Branch:          branchNum,
-			Index:           nextIndex - 1,
+			InternalAccount:      account,
+			Account:              acctKey.ChildIndex(),
+			Branch:               branchNum,
+			Index:                nextIndex - 1,
+			MasterKeyFingerprint: acctInfo.masterKeyFingerprint,
 		}
 
 		// Create a new managed address based on the public or private
@@ -1032,7 +1142,7 @@ func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
 		// Also, zero the next key after creating the managed address
 		// from it.
 		addr, err := newManagedAddressFromExtKey(
-			s, derivationPath, nextKey, addrType,
+			s, derivationPath, nextKey, addrType, acctInfo,
 		)
 		if err != nil {
 			return nil, err
@@ -1066,8 +1176,11 @@ func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
 			if err != nil {
 				return nil, maybeConvertDbError(err)
 			}
+
 		case *scriptAddress:
-			encryptedHash, err := s.rootManager.cryptoKeyPub.Encrypt(a.AddrHash())
+			encryptedHash, err := s.rootManager.cryptoKeyPub.Encrypt(
+				a.AddrHash(),
+			)
 			if err != nil {
 				str := fmt.Sprintf("failed to encrypt script hash %x",
 					a.AddrHash())
@@ -1081,6 +1194,28 @@ func (s *ScopedKeyManager) nextAddresses(ns walletdb.ReadWriteBucket,
 			if err != nil {
 				return nil, maybeConvertDbError(err)
 			}
+
+		}
+
+		// Now that we've written the address, we'll read it back from
+		// disk to ensure that it's the same address we have in memory.
+		diskAddr, err := s.loadAndCacheAddress(ns, ma.Address())
+		if err != nil {
+			return nil, maybeConvertDbError(err)
+		}
+
+		if ma.Address().String() != diskAddr.Address().String() {
+			// The address didn't match up, so we'll manually
+			// delete it from the cache.
+			delete(
+				s.addrs,
+				addrKey(diskAddr.Address().ScriptAddress()),
+			)
+
+			return nil, fmt.Errorf("%w (disk read): "+
+				"expected %v, got %v", ErrAddrMismatch,
+				diskAddr.Address().String(),
+				ma.Address().String())
 		}
 	}
 
@@ -1236,7 +1371,7 @@ func (s *ScopedKeyManager) extendAddresses(ns walletdb.ReadWriteBucket,
 		// Also, zero the next key after creating the managed address
 		// from it.
 		addr, err := newManagedAddressFromExtKey(
-			s, derivationPath, nextKey, addrType,
+			s, derivationPath, nextKey, addrType, acctInfo,
 		)
 		if err != nil {
 			return err
@@ -1912,6 +2047,16 @@ func (s *ScopedKeyManager) importPublicKey(ns walletdb.ReadWriteBucket,
 		}
 		addressID = ltcutil.Hash160(witnessScript)
 
+	case TaprootPubKey:
+		internalPubKey, err := btcec.ParsePubKey(serializedPubKey)
+		if err != nil {
+			return err
+		}
+		taprootPubKey := txscript.ComputeTaprootKeyNoScript(
+			internalPubKey,
+		)
+		addressID = schnorr.SerializePubKey(taprootPubKey)
+
 	default:
 		return fmt.Errorf("unsupported address type %v", addrType)
 	}
@@ -1979,7 +2124,7 @@ func (s *ScopedKeyManager) toImportedPrivateManagedAddress(
 	// TODO: Handle imported key being part of internal branch.
 	managedAddr, err := newManagedAddress(
 		s, ImportedDerivationPath, wif.PrivKey, wif.CompressPubKey,
-		s.addrSchema.ExternalAddrType,
+		s.addrSchema.ExternalAddrType, nil,
 	)
 	if err != nil {
 		return nil, err
@@ -2030,44 +2175,118 @@ func (s *ScopedKeyManager) toImportedPublicManagedAddress(
 func (s *ScopedKeyManager) ImportScript(ns walletdb.ReadWriteBucket,
 	script []byte, bs *BlockStamp) (ManagedScriptAddress, error) {
 
+	return s.importScriptAddress(
+		ns, ScriptHashIdentity(script), script, bs, Script, 0, true,
+	)
+}
+
+// ImportWitnessScript imports a user-provided script into the address manager.
+// The imported script will act as a pay-to-witness-script-hash address.
+//
+// All imported script addresses will be part of the account defined by the
+// ImportedAddrAccount constant.
+//
+// When the address manager is watching-only, the script itself will not be
+// stored or available since it is considered private data.
+//
+// This function will return an error if the address manager is locked and not
+// watching-only, or the address already exists.  Any other errors returned are
+// generally unexpected.
+func (s *ScopedKeyManager) ImportWitnessScript(ns walletdb.ReadWriteBucket,
+	script []byte, bs *BlockStamp, witnessVersion byte,
+	isSecretScript bool) (ManagedScriptAddress, error) {
+
+	return s.importScriptAddress(
+		ns, WitnessScriptHashIdentity(script), script, bs,
+		WitnessScript, witnessVersion, isSecretScript,
+	)
+}
+
+// ImportTaprootScript imports a user-provided taproot script into the address
+// manager. The imported script will act as a pay-to-taproot address.
+func (s *ScopedKeyManager) ImportTaprootScript(ns walletdb.ReadWriteBucket,
+	tapscript *Tapscript, bs *BlockStamp, witnessVersion byte,
+	isSecretScript bool) (ManagedTaprootScriptAddress, error) {
+
+	// Make sure we have everything we need to calculate the script root and
+	// tweak the taproot key.
+	taprootKey, err := tapscript.TaprootKey()
+	if err != nil {
+		return nil, fmt.Errorf("error calculating script root: %w", err)
+	}
+
+	script, err := tlvEncodeTaprootScript(tapscript)
+	if err != nil {
+		return nil, fmt.Errorf("error encoding taproot script: %w", err)
+	}
+
+	managedAddr, err := s.importScriptAddress(
+		ns, TaprootIdentity(taprootKey), script, bs,
+		TaprootScript, witnessVersion, isSecretScript,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// We know this is a taproot address at this point.
+	return managedAddr.(ManagedTaprootScriptAddress), nil
+}
+
+// importScriptAddress imports a new pay-to-script or pay-to-witness-script
+// address.
+func (s *ScopedKeyManager) importScriptAddress(ns walletdb.ReadWriteBucket,
+	identity Identity, script []byte, bs *BlockStamp, addrType AddressType,
+	witnessVersion byte, isSecretScript bool) (ManagedScriptAddress,
+	error) {
+
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	// The manager must be unlocked to encrypt the imported script.
-	if s.rootManager.IsLocked() {
+	if isSecretScript && s.rootManager.IsLocked() {
 		return nil, managerError(ErrLocked, errLocked, nil)
 	}
 
+	// A secret script can only be used with a non-watch only manager. If
+	// a wallet is watch-only then the script must be encrypted with the
+	// public encryption key.
+	if isSecretScript && s.rootManager.WatchOnly() {
+		return nil, managerError(ErrWatchingOnly, errWatchingOnly, nil)
+	}
+
 	// Prevent duplicates.
-	scriptHash := ltcutil.Hash160(script)
-	alreadyExists := s.existsAddress(ns, scriptHash)
+	scriptIdent := identity()
+	alreadyExists := s.existsAddress(ns, scriptIdent)
 	if alreadyExists {
-		str := fmt.Sprintf("address for script hash %x already exists",
-			scriptHash)
+		str := fmt.Sprintf("address for script hash/key %x already "+
+			"exists", scriptIdent)
 		return nil, managerError(ErrDuplicateAddress, str, nil)
 	}
 
-	// Encrypt the script hash using the crypto public key so it is
+	// Encrypt the script hash/key using the crypto public key, so it is
 	// accessible when the address manager is locked or watching-only.
-	encryptedHash, err := s.rootManager.cryptoKeyPub.Encrypt(scriptHash)
+	encryptedHash, err := s.rootManager.cryptoKeyPub.Encrypt(scriptIdent)
 	if err != nil {
-		str := fmt.Sprintf("failed to encrypt script hash %x",
-			scriptHash)
+		str := fmt.Sprintf("failed to encrypt script hash/key %x",
+			scriptIdent)
 		return nil, managerError(ErrCrypto, str, err)
 	}
 
-	// Encrypt the script for storage in database using the crypto script
-	// key when not a watching-only address manager.
-	var encryptedScript []byte
-	if !s.rootManager.WatchOnly() {
-		encryptedScript, err = s.rootManager.cryptoKeyScript.Encrypt(
-			script,
-		)
-		if err != nil {
-			str := fmt.Sprintf("failed to encrypt script for %x",
-				scriptHash)
-			return nil, managerError(ErrCrypto, str, err)
-		}
+	// If a key isn't considered to be "secret", we encrypt it with the
+	// public key, so we can create script addresses that also work in
+	// watch-only mode.
+	cryptoKey := s.rootManager.cryptoKeyScript
+	if !isSecretScript {
+		cryptoKey = s.rootManager.cryptoKeyPub
+	}
+
+	// Encrypt the script for storage in database using the selected crypto
+	// key.
+	encryptedScript, err := cryptoKey.Encrypt(script)
+	if err != nil {
+		str := fmt.Sprintf("failed to encrypt script for %x",
+			scriptIdent)
+		return nil, managerError(ErrCrypto, str, err)
 	}
 
 	// The start block needs to be updated when the newly imported address
@@ -2081,10 +2300,20 @@ func (s *ScopedKeyManager) ImportScript(ns walletdb.ReadWriteBucket,
 
 	// Save the new imported address to the db and update start block (if
 	// needed) in a single transaction.
-	err = putScriptAddress(
-		ns, &s.scope, scriptHash, ImportedAddrAccount, ssNone,
-		encryptedHash, encryptedScript,
-	)
+	switch addrType {
+	case WitnessScript, TaprootScript:
+		err = putWitnessScriptAddress(
+			ns, &s.scope, scriptIdent, ImportedAddrAccount, ssNone,
+			witnessVersion, isSecretScript, encryptedHash,
+			encryptedScript,
+		)
+
+	default:
+		err = putScriptAddress(
+			ns, &s.scope, scriptIdent, ImportedAddrAccount, ssNone,
+			encryptedHash, encryptedScript,
+		)
+	}
 	if err != nil {
 		return nil, maybeConvertDbError(err)
 	}
@@ -2108,21 +2337,34 @@ func (s *ScopedKeyManager) ImportScript(ns walletdb.ReadWriteBucket,
 	// when not a watching-only address manager, make a copy of the script
 	// since it will be cleared on lock and the script the caller passed
 	// should not be cleared out from under the caller.
-	scriptAddr, err := newScriptAddress(
-		s, ImportedAddrAccount, scriptHash, encryptedScript,
-	)
+	var managedAddr ManagedScriptAddress
+	switch addrType {
+	case WitnessScript, TaprootScript:
+		managedAddr, err = newWitnessScriptAddress(
+			s, ImportedAddrAccount, scriptIdent, encryptedScript,
+			witnessVersion, isSecretScript,
+		)
+
+	default:
+		managedAddr, err = newScriptAddress(
+			s, ImportedAddrAccount, scriptIdent, encryptedScript,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
-	if !s.rootManager.WatchOnly() {
-		scriptAddr.scriptCT = make([]byte, len(script))
-		copy(scriptAddr.scriptCT, script)
+
+	// Even if the script is secret, we are currently unlocked, so we keep a
+	// clear text copy of the script around to avoid decrypting it on each
+	// access.
+	if cts, ok := managedAddr.(clearTextScriptSetter); ok {
+		cts.setClearTextScript(script)
 	}
 
 	// Add the new managed address to the cache of recent addresses and
 	// return it.
-	s.addrs[addrKey(scriptHash)] = scriptAddr
-	return scriptAddr, nil
+	s.addrs[addrKey(scriptIdent)] = managedAddr
+	return managedAddr, nil
 }
 
 // lookupAccount loads account number stored in the manager for the given
@@ -2308,7 +2550,7 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 	switch net {
 	case wire.MainNet:
 		switch s.scope {
-		case KeyScopeBIP0044:
+		case KeyScopeBIP0044, KeyScopeBIP0086:
 			version = HDVersionMainNetBIP0044
 		case KeyScopeBIP0049Plus:
 			version = HDVersionMainNetBIP0049
@@ -2318,11 +2560,11 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 			return nil, fmt.Errorf("unsupported scope %v", s.scope)
 		}
 
-	case wire.TestNet, wire.TestNet3,
+	case wire.TestNet, wire.TestNet4,
 		netparams.SigNetWire(s.rootManager.ChainParams()):
 
 		switch s.scope {
-		case KeyScopeBIP0044:
+		case KeyScopeBIP0044, KeyScopeBIP0086:
 			version = HDVersionTestNetBIP0044
 		case KeyScopeBIP0049Plus:
 			version = HDVersionTestNetBIP0049
@@ -2334,7 +2576,7 @@ func (s *ScopedKeyManager) cloneKeyWithVersion(key *hdkeychain.ExtendedKey) (
 
 	case wire.SimNet:
 		switch s.scope {
-		case KeyScopeBIP0044:
+		case KeyScopeBIP0044, KeyScopeBIP0086:
 			version = HDVersionSimNetBIP0044
 		// We use the mainnet versions for simnet keys when the keys
 		// belong to a key scope which simnet doesn't have a defined

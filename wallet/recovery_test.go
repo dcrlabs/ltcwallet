@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/ltcsuite/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/wallet"
 )
 
 // Harness holds the BranchRecoveryState being tested, the recovery window being
@@ -121,6 +121,7 @@ var _ Stepper = ReportFound{}
 //   - report found children below or equal to previously found causes no change
 //   - marking invalid children expands the horizon
 func TestBranchRecoveryState(t *testing.T) {
+	t.Parallel()
 
 	const recoveryWindow = 10
 

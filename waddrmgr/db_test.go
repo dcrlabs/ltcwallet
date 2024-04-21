@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 // TestStoreMaxReorgDepth ensures that we can only store up to MaxReorgDepth
@@ -119,7 +119,7 @@ func TestStoreMaxReorgDepth(t *testing.T) {
 		firstBlock := blocks[0]
 		_, err = fetchBlockHash(ns, firstBlock.Height)
 		if !IsError(err, ErrBlockNotFound) {
-			return fmt.Errorf("expected ErrBlockNotFound, got %v",
+			return fmt.Errorf("expected ErrBlockNotFound, got %w",
 				err)
 		}
 

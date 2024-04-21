@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,10 +15,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/rpc/legacyrpc"
+	"github.com/dcrlabs/ltcwallet/rpc/rpcserver"
+	"github.com/dcrlabs/ltcwallet/wallet"
 	"github.com/ltcsuite/ltcd/ltcutil"
-	"github.com/ltcsuite/ltcwallet/rpc/legacyrpc"
-	"github.com/ltcsuite/ltcwallet/rpc/rpcserver"
-	"github.com/ltcsuite/ltcwallet/wallet"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -82,12 +81,12 @@ func generateRPCKeyPair(writeKey bool) (tls.Certificate, error) {
 	}
 
 	// Write cert and (potentially) the key files.
-	err = ioutil.WriteFile(cfg.RPCCert.Value, cert, 0600)
+	err = os.WriteFile(cfg.RPCCert.Value, cert, 0600)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
 	if writeKey {
-		err = ioutil.WriteFile(cfg.RPCKey.Value, key, 0600)
+		err = os.WriteFile(cfg.RPCKey.Value, key, 0600)
 		if err != nil {
 			rmErr := os.Remove(cfg.RPCCert.Value)
 			if rmErr != nil {

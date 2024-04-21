@@ -5,19 +5,19 @@
 package wallet
 
 import (
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
 )
 
 // RescanProgressMsg reports the current progress made by a rescan for a
 // set of wallet addresses.
 type RescanProgressMsg struct {
 	Addresses    []ltcutil.Address
-	Notification *chain.RescanProgress
+	Notification chain.RescanProgress
 }
 
 // RescanFinishedMsg reports the addresses that were rescanned when a
@@ -147,7 +147,7 @@ func (w *Wallet) rescanBatchHandler() {
 				select {
 				case w.rescanProgress <- &RescanProgressMsg{
 					Addresses:    curBatch.addrs,
-					Notification: n,
+					Notification: *n,
 				}:
 				case <-quit:
 					for _, errChan := range curBatch.errChans {

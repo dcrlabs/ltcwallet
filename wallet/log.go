@@ -6,9 +6,9 @@ package wallet
 
 import (
 	"github.com/btcsuite/btclog"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/walletdb/migration"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/walletdb/migration"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 )
 
 // log is a logger that is initialized with no output filters.  This
@@ -45,4 +45,21 @@ func pickNoun(n int, singular, plural string) string {
 		return singular
 	}
 	return plural
+}
+
+// LogClosure is a closure that can be printed with %v to be used to
+// generate expensive-to-create data for a detailed log level and avoid doing
+// the work if the data isn't printed.
+type logClosure func() string
+
+// String invokes the log closure and returns the results string.
+func (c logClosure) String() string {
+	return c()
+}
+
+// newLogClosure returns a new closure over the passed function which allows
+// it to be used as a parameter in a logging function that is only invoked when
+// the logging level is such that the message will actually be logged.
+func newLogClosure(c func() string) logClosure {
+	return logClosure(c)
 }

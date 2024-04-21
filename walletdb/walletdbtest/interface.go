@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/ltcsuite/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 )
 
 // errSubTestFail is used to signal that a sub test returned false.
@@ -690,7 +690,7 @@ func testAdditionalErrors(tc *testContext) bool {
 		// Create a new namespace
 		rootBucket, err := tx.CreateTopLevelBucket(ns3Key)
 		if err != nil {
-			return fmt.Errorf("CreateTopLevelBucket: unexpected error: %v", err)
+			return fmt.Errorf("CreateTopLevelBucket: unexpected error: %w", err)
 		}
 
 		// Ensure CreateBucket returns the expected error when no bucket

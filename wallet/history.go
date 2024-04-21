@@ -7,10 +7,10 @@ package wallet
 import (
 	"fmt"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
 )
 
 var (
@@ -87,7 +87,7 @@ func DropTransactionHistory(db walletdb.DB, keepLabels bool) error {
 		return waddrmgr.PutBirthdayBlock(ns, birthdayBlock)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to drop and re-create namespace: %v",
+		return fmt.Errorf("failed to drop and re-create namespace: %w",
 			err)
 	}
 

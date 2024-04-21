@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 // applyMigration is a helper function that allows us to assert the state of the

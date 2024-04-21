@@ -8,19 +8,18 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 	"github.com/ltcsuite/lnd/clock"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
 )
 
 // Received transaction output for mainnet outpoint
@@ -53,7 +52,7 @@ var (
 )
 
 func testDB() (walletdb.DB, func(), error) {
-	tmpDir, err := ioutil.TempDir("", "wtxmgr_test")
+	tmpDir, err := os.MkdirTemp("", "wtxmgr_test")
 	if err != nil {
 		return nil, func() {}, err
 	}
@@ -66,7 +65,7 @@ func testDB() (walletdb.DB, func(), error) {
 var namespaceKey = []byte("txstore")
 
 func testStore() (*Store, walletdb.DB, func(), error) {
-	tmpDir, err := ioutil.TempDir("", "wtxmgr_test")
+	tmpDir, err := os.MkdirTemp("", "wtxmgr_test")
 	if err != nil {
 		return nil, nil, func() {}, err
 	}

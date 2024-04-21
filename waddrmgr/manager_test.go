@@ -6,6 +6,7 @@ package waddrmgr
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -15,13 +16,14 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/dcrlabs/ltcwallet/snacl"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/btcec/v2"
+	"github.com/ltcsuite/ltcd/btcec/v2/schnorr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
-	"github.com/ltcsuite/ltcwallet/snacl"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,16 +85,17 @@ const (
 // expectedAddr is used to house the expected return values from a managed
 // address.  Not all fields for used for all managed address types.
 type expectedAddr struct {
-	address        string
-	addressHash    []byte
-	internal       bool
-	compressed     bool
-	imported       bool
-	pubKey         []byte
-	privKey        []byte
-	privKeyWIF     string
-	script         []byte
-	derivationInfo DerivationPath
+	address         string
+	addressHash     []byte
+	internal        bool
+	compressed      bool
+	imported        bool
+	pubKey          []byte
+	privKey         []byte
+	privKeyWIF      string
+	script          []byte
+	derivationInfo  DerivationPath
+	scriptNotSecret bool
 }
 
 // testNamePrefix is a helper to return a prefix to show for test errors based
@@ -243,13 +246,16 @@ func testManagedScriptAddress(tc *testContext, prefix string,
 	// the expected error when the manager is locked.
 	gotScript, err := gotAddr.Script()
 	switch {
-	case tc.watchingOnly:
+	case tc.watchingOnly && !wantAddr.scriptNotSecret:
 		// Confirm expected watching-only error.
 		testName := fmt.Sprintf("%s Script", prefix)
 		if !checkManagerError(tc.t, testName, err, ErrWatchingOnly) {
 			return false
 		}
-	case tc.unlocked:
+
+	// Either the manger is unlocked or the script is not considered to
+	// be secret and is encrypted with the public key.
+	case tc.unlocked || wantAddr.scriptNotSecret:
 		if err != nil {
 			tc.t.Errorf("%s Script: unexpected error - got %v",
 				prefix, err)
@@ -260,6 +266,7 @@ func testManagedScriptAddress(tc *testContext, prefix string,
 				"want %x", prefix, gotScript, wantAddr.script)
 			return false
 		}
+
 	default:
 		// Confirm expected locked error.
 		testName := fmt.Sprintf("%s Script", prefix)
@@ -281,6 +288,8 @@ func testManagedScriptAddress(tc *testContext, prefix string,
 // are checked to ensure they return the correct error.
 func testAddress(tc *testContext, prefix string, gotAddr ManagedAddress,
 	wantAddr *expectedAddr) bool {
+
+	tc.t.Helper()
 
 	if gotAddr.InternalAccount() != tc.internalAccount {
 		tc.t.Errorf("ManagedAddress.Account: unexpected account - got "+
@@ -881,10 +890,14 @@ func testImportPrivateKey(tc *testContext) bool {
 // with the manager locked.
 func testImportScript(tc *testContext) bool {
 	tests := []struct {
-		name       string
-		in         []byte
-		blockstamp BlockStamp
-		expected   expectedAddr
+		name           string
+		in             []byte
+		isWitness      bool
+		isTaproot      bool
+		witnessVersion byte
+		isSecretScript bool
+		blockstamp     BlockStamp
+		expected       expectedAddr
 	}{
 		{
 			name: "p2sh uncompressed pubkey",
@@ -922,6 +935,69 @@ func testImportScript(tc *testContext) bool {
 				// script is set to the in field during tests.
 			},
 		},
+		{
+			name:           "p2wsh multisig",
+			isWitness:      true,
+			witnessVersion: 0,
+			isSecretScript: true,
+			in: hexToBytes("52210305a662958b547fe25a71cd28fc7ef1c2" +
+				"ad4a79b12f34fc40137824b88e61199d21038552c09d9" +
+				"a709c8cbba6e472307d3f8383f46181895a76e01e258f" +
+				"09033b4a7821029dd72aba87324af59508380f9564d34" +
+				"b0f7b20d864d186e7d0428c9ea241c61653ae"),
+			expected: expectedAddr{
+				address:     "ltc1q0jljr70qchwtk3ag0w3gyg9mjhg4c95xr7h8ezhvdrfgppcpz4es2f348k",
+				addressHash: hexToBytes("7cbf21f9e0c5dcbb47a87ba28220bb95d15c16861fae7c8aec68d28087011573"),
+				internal:    false,
+				imported:    true,
+				compressed:  true,
+				// script is set to the in field during tests.
+			},
+		},
+		{
+			name:           "p2wsh multisig as watch-only address",
+			isWitness:      true,
+			witnessVersion: 0,
+			isSecretScript: false,
+			in: hexToBytes("52210305a662958b547fe25a71cd28fc7ef1c2" +
+				"ad4a79b12f34fc40137824b88e61199d21038552c09d9" +
+				"a709c8cbba6e472307d3f8383f46181895a76e01e258f" +
+				"09033b4a7821024794b65a83e9ba415096e59abc4d4d1" +
+				"1710968e52bf5eec56fe0e5bdb3d3ec0e53ae"),
+			expected: expectedAddr{
+				address:         "ltc1q3a79gkjulrsgp864yskp4d5zmwm49xsdrfwvdypkqtlpj7spd3fqqm6rr4",
+				addressHash:     hexToBytes("8f7c545a5cf8e0809f55242c1ab682dbb7529a0d1a5cc6903602fe197a016c52"),
+				internal:        false,
+				imported:        true,
+				compressed:      true,
+				scriptNotSecret: true,
+				// script is set to the in field during tests.
+			},
+		},
+		{
+			name:           "p2tr tapscript with all tap leaves",
+			isTaproot:      true,
+			witnessVersion: 1,
+			isSecretScript: true,
+			// The encoded *Tapscript struct for a script with all
+			// tap script leaves known.
+			in: hexToBytes(
+				"0101000221c00ef94ee79c07cbd1988fffd6e6aea1e2" +
+					"5c3b033a2fd64fe14a9b955e5355f0c60346" +
+					"1d0101c0021876a914f6c97547d73156abb3" +
+					"00ae059905c4acaadd09dd88270101c00222" +
+					"200ef94ee79c07cbd1988fffd6e6aea1e25c" +
+					"3b033a2fd64fe14a9b955e5355f0c6ac",
+			),
+			expected: expectedAddr{
+				address:     "ltc1pu92qt24cl4spyp4rsj9sa3y4ma6a3fszgewcmway9f6f80vgnduqhmaa4e",
+				addressHash: hexToBytes("e15405aab8fd601206a3848b0ec495df75d8a602465d8dbba42a7493bd889b78"),
+				internal:    false,
+				imported:    true,
+				compressed:  true,
+				// script is set to the in field during tests.
+			},
+		},
 	}
 
 	// The manager must be unlocked to import a private key and also for
@@ -953,7 +1029,32 @@ func testImportScript(tc *testContext) bool {
 			err := walletdb.Update(tc.db, func(tx walletdb.ReadWriteTx) error {
 				ns := tx.ReadWriteBucket(waddrmgrNamespaceKey)
 				var err error
-				addr, err = tc.manager.ImportScript(ns, test.in, &test.blockstamp)
+
+				switch {
+				case test.isWitness:
+					addr, err = tc.manager.ImportWitnessScript(
+						ns, test.in, &test.blockstamp,
+						test.witnessVersion,
+						test.isSecretScript,
+					)
+
+				case test.isTaproot:
+					var script *Tapscript
+					script, err = tlvDecodeTaprootTaprootScript(
+						test.in,
+					)
+					require.NoError(tc.t, err)
+					addr, err = tc.manager.ImportTaprootScript(
+						ns, script, &test.blockstamp,
+						test.witnessVersion,
+						test.isSecretScript,
+					)
+
+				default:
+					addr, err = tc.manager.ImportScript(
+						ns, test.in, &test.blockstamp,
+					)
+				}
 				return err
 			})
 			if err != nil {
@@ -977,8 +1078,39 @@ func testImportScript(tc *testContext) bool {
 
 			// Use the Address API to retrieve each of the expected
 			// new addresses and ensure they're accurate.
-			utilAddr, err := ltcutil.NewAddressScriptHash(test.in,
-				chainParams)
+			var (
+				utilAddr ltcutil.Address
+				err      error
+			)
+			switch {
+			case test.isWitness && test.witnessVersion == 0:
+				scriptHash := sha256.Sum256(test.in)
+				utilAddr, err = ltcutil.NewAddressWitnessScriptHash(
+					scriptHash[:], chainParams,
+				)
+
+			case test.isTaproot:
+				var (
+					script     *Tapscript
+					taprootKey *btcec.PublicKey
+				)
+				script, err = tlvDecodeTaprootTaprootScript(
+					test.in,
+				)
+				require.NoError(tc.t, err)
+				taprootKey, err = script.TaprootKey()
+				require.NoError(tc.t, err)
+
+				utilAddr, err = ltcutil.NewAddressTaproot(
+					schnorr.SerializePubKey(taprootKey),
+					chainParams,
+				)
+
+			default:
+				utilAddr, err = ltcutil.NewAddressScriptHash(
+					test.in, chainParams,
+				)
+			}
 			if err != nil {
 				tc.t.Errorf("%s NewAddressScriptHash #%d (%s): "+
 					"unexpected error: %v", prefix, i,
@@ -1705,7 +1837,7 @@ func testConvertWatchingOnly(tc *testContext) bool {
 	// Run all of the manager API tests against the converted manager and
 	// close it. We'll also retrieve the default scope (BIP0044) from the
 	// manager in order to use.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		tc.t.Errorf("unable to fetch bip 44 scope %v", err)
 		return false
@@ -1735,7 +1867,7 @@ func testConvertWatchingOnly(tc *testContext) bool {
 	}
 	defer mgr.Close()
 
-	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		tc.t.Errorf("unable to fetch bip 44 scope %v", err)
 		return false
@@ -1883,7 +2015,7 @@ func testManagerCase(t *testing.T, caseName string,
 
 		if caseCreatedWatchingOnly {
 			_, err = mgr.NewScopedKeyManager(
-				ns, KeyScopeBIP0044, ScopeAddrMap[KeyScopeBIP0044])
+				ns, KeyScopeBIP0044WithBitcoinCoinID, ScopeAddrMap[KeyScopeBIP0044WithBitcoinCoinID])
 		}
 		return err
 	})
@@ -1910,7 +2042,7 @@ func testManagerCase(t *testing.T, caseName string,
 		return
 	}
 
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		t.Fatalf("(%s) unable to fetch default scope: %v", caseName, err)
 	}
@@ -1969,7 +2101,7 @@ func testManagerCase(t *testing.T, caseName string,
 	}
 	defer mgr.Close()
 
-	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err = mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		t.Fatalf("(%s) unable to fetch default scope: %v", caseName, err)
 	}
@@ -2013,7 +2145,7 @@ func deriveTestAccountKey(t *testing.T) *hdkeychain.ExtendedKey {
 		t.Errorf("NewMaster: unexpected error: %v", err)
 		return nil
 	}
-	scopeKey, err := deriveCoinTypeKey(masterKey, KeyScopeBIP0044)
+	scopeKey, err := deriveCoinTypeKey(masterKey, KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
 		t.Errorf("derive: unexpected error: %v", err)
 		return nil
@@ -2412,7 +2544,7 @@ func TestScopedKeyManagerManagement(t *testing.T) {
 
 		_, err := mgr.Address(ns, lastAddr.Address())
 		if err != nil {
-			return fmt.Errorf("unable to find addr: %v", err)
+			return fmt.Errorf("unable to find addr: %w", err)
 		}
 
 		err = mgr.MarkUsed(ns, lastAddr.Address())
@@ -2608,7 +2740,7 @@ func TestNewRawAccountWatchingOnly(t *testing.T) {
 		}
 
 		_, err = mgr.NewScopedKeyManager(
-			ns, KeyScopeBIP0044, ScopeAddrMap[KeyScopeBIP0044])
+			ns, KeyScopeBIP0044WithBitcoinCoinID, ScopeAddrMap[KeyScopeBIP0044WithBitcoinCoinID])
 		return err
 	})
 	if err != nil {
@@ -2618,9 +2750,9 @@ func TestNewRawAccountWatchingOnly(t *testing.T) {
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
-		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044, err)
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err)
 	}
 
 	accountKey := deriveTestAccountKey(t)
@@ -2679,9 +2811,9 @@ func TestNewRawAccountHybrid(t *testing.T) {
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
 	if err != nil {
-		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044, err)
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err)
 	}
 
 	accountKey := deriveTestAccountKey(t)
@@ -2796,16 +2928,18 @@ func TestDeriveFromKeyPathCache(t *testing.T) {
 
 		return mgr.Unlock(ns, privPassphrase)
 	})
-	require.NoError(t, err, "create/open: unexpected error: %v", err)
+	if err != nil {
+		t.Fatalf("create/open: unexpected error: %v", err)
+	}
 
 	defer mgr.Close()
 
 	// Now that we have the manager created, we'll fetch one of the default
 	// scopes for usage within this test.
-	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044)
-	require.NoError(
-		t, err, "unable to fetch scope %v: %v", KeyScopeBIP0044, err,
-	)
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0044WithBitcoinCoinID)
+	if err != nil {
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0044WithBitcoinCoinID, err)
+	}
 
 	keyPath := DerivationPath{
 		InternalAccount: 0,
@@ -2842,18 +2976,331 @@ func TestDeriveFromKeyPathCache(t *testing.T) {
 
 		return nil
 	})
-	require.NoError(t, err, "unable to derive addr: %v", err)
+	if err != nil {
+		t.Fatalf("unable to derive addr: %v", err)
+	}
 
 	// Next attempt to read the key again from the cache, it should succeed
 	// this time.
 	cachedKey, err := scopedMgr.DeriveFromKeyPathCache(keyPath)
-	require.NoError(t, err, "account wasn't cached")
+	if err != nil {
+		t.Fatalf("account wasn't cached")
+	}
 
 	// We should be able to read the key again.
 	cachedKey2, err := scopedMgr.DeriveFromKeyPathCache(keyPath)
-	require.NoError(t, err, "account wasn't cached")
+	if err != nil {
+		t.Fatalf("account wasn't cached")
+	}
 
 	// All three keys we have now should match exactly.
-	require.Equal(t, cachedKey.Serialize(), cachedKey2.Serialize())
-	require.Equal(t, derivedKey.Serialize(), cachedKey2.Serialize())
+	if !bytes.Equal(cachedKey.Serialize(), cachedKey2.Serialize()) {
+		t.Fatal("cached keys not equal")
+	}
+	if !bytes.Equal(derivedKey.Serialize(), cachedKey2.Serialize()) {
+		t.Fatal("wrong derived key")
+	}
+}
+
+// TestTaprootPubKeyDerivation tests that p2tr addresses can be derived from the
+// scoped manager when using the BIP0086 key scope.
+func TestTaprootPubKeyDerivation(t *testing.T) {
+	t.Parallel()
+
+	teardown, db := emptyDB(t)
+	defer teardown()
+
+	// From: https://github.com/bitcoin/bips/blob/master/bip-0086.mediawiki
+	rootKey, _ := hdkeychain.NewKeyFromString(
+		"xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLi" +
+			"sriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu",
+	)
+
+	// We'll start the test by creating a new root manager that will be
+	// used for the duration of the test.
+	var mgr *Manager
+	err := walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
+		ns, err := tx.CreateTopLevelBucket(waddrmgrNamespaceKey)
+		if err != nil {
+			return err
+		}
+		err = Create(
+			ns, rootKey, pubPassphrase, privPassphrase,
+			&chaincfg.MainNetParams, fastScrypt, time.Time{},
+		)
+		if err != nil {
+			return err
+		}
+		mgr, err = Open(ns, pubPassphrase, &chaincfg.MainNetParams)
+		if err != nil {
+			return err
+		}
+
+		return mgr.Unlock(ns, privPassphrase)
+	})
+	if err != nil {
+		t.Fatalf("create/open: unexpected error: %v", err)
+	}
+
+	defer mgr.Close()
+
+	// Now that we have the manager created, we'll fetch one of the default
+	// scopes for usage within this test.
+	scopedMgr, err := mgr.FetchScopedKeyManager(KeyScopeBIP0086)
+	if err != nil {
+		t.Fatalf("unable to fetch scope %v: %v", KeyScopeBIP0086, err)
+	}
+
+	externalPath := DerivationPath{
+		InternalAccount: 0,
+		Account:         hdkeychain.HardenedKeyStart,
+		Branch:          0,
+		Index:           0,
+	}
+	internalPath := DerivationPath{
+		InternalAccount: 0,
+		Account:         hdkeychain.HardenedKeyStart,
+		Branch:          1,
+		Index:           0,
+	}
+
+	assertAddressDerivation(
+		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
+			return scopedMgr.DeriveFromKeyPath(ns, externalPath)
+		},
+		"ltc1puht8rk95c53q3u9w3pf9h3jfcutcrl9lxc7rqsdthjrse4k6sn7q9tuqm9",
+		scopedMgr,
+	)
+	assertAddressDerivation(
+		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
+			addrs, err := scopedMgr.NextExternalAddresses(ns, 0, 1)
+			if err != nil {
+				return nil, err
+			}
+			return addrs[0], nil
+		},
+		"ltc1puht8rk95c53q3u9w3pf9h3jfcutcrl9lxc7rqsdthjrse4k6sn7q9tuqm9",
+		scopedMgr,
+	)
+	assertAddressDerivation(
+		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
+			return scopedMgr.LastExternalAddress(ns, 0)
+		},
+		"ltc1puht8rk95c53q3u9w3pf9h3jfcutcrl9lxc7rqsdthjrse4k6sn7q9tuqm9",
+		scopedMgr,
+	)
+	assertAddressDerivation(
+		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
+			return scopedMgr.DeriveFromKeyPath(ns, internalPath)
+		},
+		"ltc1pehskafcqerg3hqvx005ywevqta7r0q980xgnencjgez0fyf7lt7s8r36hx",
+		scopedMgr,
+	)
+	assertAddressDerivation(
+		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
+			addrs, err := scopedMgr.NextInternalAddresses(ns, 0, 1)
+			if err != nil {
+				return nil, err
+			}
+			return addrs[0], nil
+		},
+		"ltc1pehskafcqerg3hqvx005ywevqta7r0q980xgnencjgez0fyf7lt7s8r36hx",
+		scopedMgr,
+	)
+	assertAddressDerivation(
+		t, db, func(ns walletdb.ReadWriteBucket) (ManagedAddress, error) {
+			return scopedMgr.LastInternalAddress(ns, 0)
+		},
+		"ltc1pehskafcqerg3hqvx005ywevqta7r0q980xgnencjgez0fyf7lt7s8r36hx",
+		scopedMgr,
+	)
+}
+
+// assertAddressDerivation makes sure the address derived in the given callback
+// is the one that is expected.
+func assertAddressDerivation(t *testing.T, db walletdb.DB,
+	fn func(walletdb.ReadWriteBucket) (ManagedAddress, error),
+	expectedAddr string, scopedMgr *ScopedKeyManager) {
+
+	var address ManagedAddress
+	err := walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
+		ns := tx.ReadWriteBucket(waddrmgrNamespaceKey)
+
+		var err error
+		address, err = fn(ns)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("unable to derive addr: %v", err)
+	}
+
+	if expectedAddr != address.Address().String() {
+		t.Fatalf("wrong derived address. expected %s got %s", expectedAddr, address.Address().String())
+	}
+
+	// Also make sure marking addresses as used works correctly.
+	err = walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
+		ns := tx.ReadWriteBucket(waddrmgrNamespaceKey)
+
+		err = scopedMgr.MarkUsed(ns, address.Address())
+		if err != nil {
+			return err
+		}
+		used := address.Used(ns)
+		if used != true {
+			return fmt.Errorf("unexpected used flag -- got "+
+				"%v, want %v", used, true)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("error marking address as used: %v", err)
+	}
+}
+
+// TestManagedAddressValidation tests that we're able to properly detect and
+// reject various fault cases for address/key derivation.
+func TestManagedAddressValidation(t *testing.T) {
+	t.Parallel()
+
+	teardown, db := emptyDB(t)
+	defer teardown()
+
+	// We'll start the test by creating a new root manager that will be
+	// used for the duration of the test.
+	var mgr *Manager
+	err := walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
+		ns, err := tx.CreateTopLevelBucket(waddrmgrNamespaceKey)
+		if err != nil {
+			return err
+		}
+		err = Create(
+			ns, rootKey, pubPassphrase, privPassphrase,
+			&chaincfg.MainNetParams, fastScrypt, time.Time{},
+		)
+		if err != nil {
+			return err
+		}
+		mgr, err = Open(ns, pubPassphrase, &chaincfg.MainNetParams)
+		if err != nil {
+			return err
+		}
+
+		return mgr.Unlock(ns, privPassphrase)
+	})
+	require.NoError(t, err, "create/open: unexpected error: %v", err)
+
+	defer mgr.Close()
+
+	var testCases = []struct {
+		name        string
+		mutator     func(addr *managedAddress, ogPrivKey *btcec.PrivateKey)
+		expectedErr error
+	}{
+		{
+			// In this case, we'll swap out the public key with some other
+			// random public key.
+			name: "derive diff pubkey",
+			mutator: func(addr *managedAddress, priv *btcec.PrivateKey) {
+				newPriv, err := btcec.NewPrivateKey()
+				if err != nil {
+					t.Fatalf("unable to gen priv key: %v", err)
+				}
+
+				addr.pubKey = newPriv.PubKey()
+			},
+			expectedErr: ErrPubKeyMismatch,
+		},
+		{
+			// In this case, we'll swap out the contained address another
+			// address that's actually a different type. This simulates a
+			// bitflip during the address generation process.
+			name: "addr bitflip",
+			mutator: func(addr *managedAddress, priv *btcec.PrivateKey) {
+				hash160 := ltcutil.Hash160(
+					addr.pubKey.SerializeCompressed(),
+				)
+				hash160[0] ^= 0x01
+
+				addr.address, err = ltcutil.NewAddressWitnessPubKeyHash(
+					hash160, &chaincfg.MainNetParams,
+				)
+				if err != nil {
+					t.Fatalf("unable to gen addr: %v", err)
+				}
+			},
+			expectedErr: ErrAddrMismatch,
+		},
+		{
+			// In this final case, we'll have the signature generator
+			// return a signature that's actually invalid for the public
+			// key.
+			name: "wrong priv key",
+			mutator: func(addr *managedAddress, priv *btcec.PrivateKey) {
+				// To trigger an invalid private key, we'll
+				// modify the internal decrypted private key.
+				addr.privKeyCT[0] ^= 0x01
+			},
+			expectedErr: ErrInvalidSignature,
+		},
+	}
+
+	// We'll run the tests for all the scopes we generate addresses for.
+	// This'll ensure we test for both ECDSA and schnorr.
+	scopes := DefaultKeyScopes
+
+	for _, testCase := range testCases {
+		testCase := testCase
+
+		for _, scope := range scopes {
+			testCase := testCase
+
+			testName := fmt.Sprintf("%v: scope=%v", testCase.name,
+				scope)
+
+			t.Run(testName, func(t *testing.T) {
+				scopedMgr, err := mgr.FetchScopedKeyManager(scope)
+				require.NoError(
+					t, err, "unable to fetch scope %v: %v",
+					KeyScopeBIP0086, err,
+				)
+
+				var addr ManagedAddress
+
+				// With the scoped managed we created above,
+				// generate a new address.
+				err = walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
+					ns := tx.ReadWriteBucket(waddrmgrNamespaceKey)
+					addrs, err := scopedMgr.NextExternalAddresses(
+						ns, 0, 1,
+					)
+					if err != nil {
+						return err
+					}
+
+					addr = addrs[0]
+					return nil
+				})
+				require.NoError(t, err)
+
+				pubKeyAddr := addr.(ValidatableManagedAddress)
+
+				privKeyForAddr, err := pubKeyAddr.PrivKey()
+				require.NoError(t, err)
+
+				rawAddr := addr.(*managedAddress)
+
+				// Apply the mutator to the returned address an/or
+				// private key.
+				testCase.mutator(rawAddr, privKeyForAddr)
+
+				var msg [32]byte
+				require.ErrorIs(
+					t, pubKeyAddr.Validate(msg, privKeyForAddr),
+					testCase.expectedErr,
+				)
+			})
+		}
+	}
+
 }

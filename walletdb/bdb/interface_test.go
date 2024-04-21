@@ -13,17 +13,16 @@
 package bdb_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/ltcsuite/ltcwallet/walletdb/walletdbtest"
+	"github.com/dcrlabs/ltcwallet/walletdb/walletdbtest"
 )
 
 // TestInterface performs all interfaces tests for this database driver.
 func TestInterface(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "interfacetest")
+	tempDir, err := os.MkdirTemp("", "interfacetest")
 	if err != nil {
 		t.Errorf("unable to create temp dir: %v", err)
 		return

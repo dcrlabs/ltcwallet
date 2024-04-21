@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ltcsuite/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 )
 
 const (

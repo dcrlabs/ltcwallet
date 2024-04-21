@@ -6,6 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/spv"
+	"github.com/dcrlabs/ltcwallet/spv/headerfs"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wtxmgr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
@@ -14,20 +18,23 @@ import (
 	"github.com/ltcsuite/ltcd/rpcclient"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wtxmgr"
-	"github.com/ltcsuite/neutrino"
-	"github.com/ltcsuite/neutrino/headerfs"
 )
 
-// NeutrinoClient is an implementation of the ltcwallet chain.Interface interface.
+// NeutrinoClient is an implementation of the btcwallet chain.Interface interface.
 type NeutrinoClient struct {
-	CS *neutrino.ChainService
+	CS NeutrinoChainService
 
 	chainParams *chaincfg.Params
 
-	// We currently support one rescan/notifiction goroutine per client
-	rescan *neutrino.Rescan
+	// We currently support only one rescan/notification goroutine per client.
+	// Therefore there can only be one instance of the rescan object and
+	// the rescanMtx synchronizes its access.  Calls to the NotifyReceived
+	// and Rescan methods of the client must hold the rescan mutex lock for
+	// the length of their execution to ensure that all operations that
+	// affect the rescan object are atomic.
+	rescan    rescanner
+	newRescan newRescanFunc
+	rescanMtx sync.Mutex
 
 	enqueueNotification     chan interface{}
 	dequeueNotification     chan interface{}
@@ -45,17 +52,37 @@ type NeutrinoClient struct {
 	finished   bool
 	isRescan   bool
 
+	// The clientMtx synchronizes access to the state variables of the client.
+	//
+	// TODO(mstreet3): Currently the clientMtx synchronizes access to the
+	// rescanQuit and rescanErr channels, which cancel the current rescan
+	// goroutine when closed and is updated each time a new rescan goroutine
+	// is created, respectively.  All state related to the rescan goroutine
+	// should ideally be synchronized by the same lock or via some other
+	// shared mechanism.
 	clientMtx sync.Mutex
 }
 
 // NewNeutrinoClient creates a new NeutrinoClient struct with a backing
 // ChainService.
 func NewNeutrinoClient(chainParams *chaincfg.Params,
-	chainService *neutrino.ChainService) *NeutrinoClient {
+	chainService *spv.ChainService) *NeutrinoClient {
+
+	chainSource := &spv.RescanChainSource{
+		ChainService: chainService,
+	}
+
+	// Adapt the spv.NewRescan constructor to satisfy the
+	// newRescanFunc type by closing over the chainSource and
+	// passing in the rescan options.
+	newRescan := func(ropts ...spv.RescanOption) rescanner {
+		return spv.NewRescan(chainSource, ropts...)
+	}
 
 	return &NeutrinoClient{
 		CS:          chainService,
 		chainParams: chainParams,
+		newRescan:   newRescan,
 	}
 }
 
@@ -67,30 +94,42 @@ func (s *NeutrinoClient) BackEnd() string {
 // Start replicates the RPC client's Start method.
 func (s *NeutrinoClient) Start() error {
 	if err := s.CS.Start(); err != nil {
-		return fmt.Errorf("error starting chain service: %v", err)
+		return fmt.Errorf("error starting chain service: %w", err)
 	}
 
 	s.clientMtx.Lock()
 	defer s.clientMtx.Unlock()
 	if !s.started {
+		// Reset the client state.
 		s.enqueueNotification = make(chan interface{})
 		s.dequeueNotification = make(chan interface{})
 		s.currentBlock = make(chan *waddrmgr.BlockStamp)
 		s.quit = make(chan struct{})
 		s.started = true
+
+		// Go place a ClientConnected notification onto the queue.
 		s.wg.Add(1)
 		go func() {
+			defer s.wg.Done()
+
 			select {
 			case s.enqueueNotification <- ClientConnected{}:
 			case <-s.quit:
 			}
 		}()
+
+		// Go launch the notification handler.
+		s.wg.Add(1)
 		go s.notificationHandler()
 	}
 	return nil
 }
 
 // Stop replicates the RPC client's Stop method.
+//
+// TODO(mstreet3): The Stop method does not cancel the long-running rescan
+// goroutine.  This is a memory leak.  Stop should shutdown the rescan goroutine
+// and reset the scanning state of the NeutrinoClient to false.
 func (s *NeutrinoClient) Stop() {
 	s.clientMtx.Lock()
 	defer s.clientMtx.Unlock()
@@ -321,7 +360,7 @@ func (s *NeutrinoClient) pollCFilter(hash *chainhash.Hash) (*gcs.Filter, error) 
 		}
 
 		filter, err = s.CS.GetCFilter(
-			*hash, wire.GCSFilterRegular, neutrino.OptimisticBatch(),
+			*hash, wire.GCSFilterRegular, spv.OptimisticBatch(),
 		)
 		if err != nil {
 			count++
@@ -337,6 +376,10 @@ func (s *NeutrinoClient) pollCFilter(hash *chainhash.Hash) (*gcs.Filter, error) 
 // Rescan replicates the RPC client's Rescan command.
 func (s *NeutrinoClient) Rescan(startHash *chainhash.Hash, addrs []ltcutil.Address,
 	outPoints map[wire.OutPoint]ltcutil.Address) error {
+
+	// Obtain and hold the rescan mutex lock for the duration of the call.
+	s.rescanMtx.Lock()
+	defer s.rescanMtx.Unlock()
 
 	s.clientMtx.Lock()
 	if !s.started {
@@ -364,11 +407,11 @@ func (s *NeutrinoClient) Rescan(startHash *chainhash.Hash, addrs []ltcutil.Addre
 
 	bestBlock, err := s.CS.BestBlock()
 	if err != nil {
-		return fmt.Errorf("can't get chain service's best block: %s", err)
+		return fmt.Errorf("can't get chain service's best block: %w", err)
 	}
 	header, err := s.CS.GetBlockHeader(&bestBlock.Hash)
 	if err != nil {
-		return fmt.Errorf("can't get block header for hash %v: %s",
+		return fmt.Errorf("can't get block header for hash %v: %w",
 			bestBlock.Hash, err)
 	}
 
@@ -397,34 +440,31 @@ func (s *NeutrinoClient) Rescan(startHash *chainhash.Hash, addrs []ltcutil.Addre
 		}
 	}
 
-	var inputsToWatch []neutrino.InputWithScript
+	var inputsToWatch []spv.InputWithScript
 	for op, addr := range outPoints {
 		addrScript, err := txscript.PayToAddrScript(addr)
 		if err != nil {
 			return err
 		}
 
-		inputsToWatch = append(inputsToWatch, neutrino.InputWithScript{
+		inputsToWatch = append(inputsToWatch, spv.InputWithScript{
 			OutPoint: op,
 			PkScript: addrScript,
 		})
 	}
 
 	s.clientMtx.Lock()
-	newRescan := neutrino.NewRescan(
-		&neutrino.RescanChainSource{
-			ChainService: s.CS,
-		},
-		neutrino.NotificationHandlers(rpcclient.NotificationHandlers{
+	newRescan := s.newRescan(
+		spv.NotificationHandlers(rpcclient.NotificationHandlers{
 			OnBlockConnected:         s.onBlockConnected,
 			OnFilteredBlockConnected: s.onFilteredBlockConnected,
 			OnBlockDisconnected:      s.onBlockDisconnected,
 		}),
-		neutrino.StartBlock(&headerfs.BlockStamp{Hash: *startHash}),
-		neutrino.StartTime(s.startTime),
-		neutrino.QuitChan(s.rescanQuit),
-		neutrino.WatchAddrs(addrs...),
-		neutrino.WatchInputs(inputsToWatch...),
+		spv.StartBlock(&headerfs.BlockStamp{Hash: *startHash}),
+		spv.StartTime(s.startTime),
+		spv.QuitChan(s.rescanQuit),
+		spv.WatchAddrs(addrs...),
+		spv.WatchInputs(inputsToWatch...),
 	)
 	s.rescan = newRescan
 	s.rescanErr = s.rescan.Start()
@@ -449,13 +489,17 @@ func (s *NeutrinoClient) NotifyBlocks() error {
 
 // NotifyReceived replicates the RPC client's NotifyReceived command.
 func (s *NeutrinoClient) NotifyReceived(addrs []ltcutil.Address) error {
+	// Obtain and hold the rescan mutex lock for the duration of the call.
+	s.rescanMtx.Lock()
+	defer s.rescanMtx.Unlock()
+
 	s.clientMtx.Lock()
 
 	// If we have a rescan running, we just need to add the appropriate
 	// addresses to the watch list.
 	if s.scanning {
 		s.clientMtx.Unlock()
-		return s.rescan.Update(neutrino.AddAddrs(addrs...))
+		return s.rescan.Update(spv.AddAddrs(addrs...))
 	}
 
 	s.rescanQuit = make(chan struct{})
@@ -467,18 +511,15 @@ func (s *NeutrinoClient) NotifyReceived(addrs []ltcutil.Address) error {
 	s.lastFilteredBlockHeader = nil
 
 	// Rescan with just the specified addresses.
-	newRescan := neutrino.NewRescan(
-		&neutrino.RescanChainSource{
-			ChainService: s.CS,
-		},
-		neutrino.NotificationHandlers(rpcclient.NotificationHandlers{
+	newRescan := s.newRescan(
+		spv.NotificationHandlers(rpcclient.NotificationHandlers{
 			OnBlockConnected:         s.onBlockConnected,
 			OnFilteredBlockConnected: s.onFilteredBlockConnected,
 			OnBlockDisconnected:      s.onBlockDisconnected,
 		}),
-		neutrino.StartTime(s.startTime),
-		neutrino.QuitChan(s.rescanQuit),
-		neutrino.WatchAddrs(addrs...),
+		spv.StartTime(s.startTime),
+		spv.QuitChan(s.rescanQuit),
+		spv.WatchAddrs(addrs...),
 	)
 	s.rescan = newRescan
 	s.rescanErr = s.rescan.Start()
@@ -569,7 +610,7 @@ func (s *NeutrinoClient) onBlockConnected(hash *chainhash.Hash, height int32,
 	sendRescanProgress := func() {
 		select {
 		case s.enqueueNotification <- &RescanProgress{
-			Hash:   hash,
+			Hash:   *hash,
 			Height: height,
 			Time:   time,
 		}:

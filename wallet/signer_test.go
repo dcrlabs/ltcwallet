@@ -7,15 +7,17 @@ package wallet
 import (
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
 )
 
 // TestComputeInputScript checks that the wallet can create the full
 // witness script for a witness output.
 func TestComputeInputScript(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name              string
 		scope             waddrmgr.KeyScope
@@ -74,7 +76,10 @@ func runTestCase(t *testing.T, w *Wallet, scope waddrmgr.KeyScope,
 		}},
 		TxOut: []*wire.TxOut{utxOut},
 	}
-	sigHashes := txscript.NewTxSigHashes(outgoingTx)
+	fetcher := txscript.NewCannedPrevOutputFetcher(
+		utxOut.PkScript, utxOut.Value,
+	)
+	sigHashes := txscript.NewTxSigHashes(outgoingTx, fetcher)
 
 	// Compute the input script to spend the UTXO now.
 	witness, script, err := w.ComputeInputScript(

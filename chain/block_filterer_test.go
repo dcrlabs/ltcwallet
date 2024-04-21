@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/chain"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/chain"
 )
 
 var Block100000 = wire.MsgBlock{

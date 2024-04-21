@@ -6,14 +6,13 @@ package walletdb_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 )
 
 var (
@@ -61,7 +60,7 @@ func TestAddDuplicateDriver(t *testing.T) {
 			"got %v, want %v", err, walletdb.ErrDbTypeRegistered)
 	}
 
-	tempDir, err := ioutil.TempDir("", "dupdrivertest")
+	tempDir, err := os.MkdirTemp("", "dupdrivertest")
 	if err != nil {
 		t.Errorf("unable to create temp dir: %v", err)
 		return

@@ -11,15 +11,15 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/internal/legacy/keystore"
+	"github.com/dcrlabs/ltcwallet/internal/prompt"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/legacy/keystore"
-	"github.com/ltcsuite/ltcwallet/internal/prompt"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
 )
 
 // networkDir returns the directory name of a network directory to hold wallet
@@ -32,7 +32,7 @@ func networkDir(dataDir string, chainParams *chaincfg.Params) string {
 	// parameters will likely be switched to being named "testnet3" in the
 	// future.  This is done to future proof that change, and an upgrade
 	// plan to move the testnet3 data directory can be worked out later.
-	if chainParams.Net == wire.TestNet3 {
+	if chainParams.Net == wire.TestNet4 {
 		netname = "testnet"
 	}
 
@@ -237,10 +237,10 @@ func checkCreateDir(path string) error {
 		if os.IsNotExist(err) {
 			// Attempt data directory creation
 			if err = os.MkdirAll(path, 0700); err != nil {
-				return fmt.Errorf("cannot create directory: %s", err)
+				return fmt.Errorf("cannot create directory: %w", err)
 			}
 		} else {
-			return fmt.Errorf("error checking directory: %s", err)
+			return fmt.Errorf("error checking directory: %w", err)
 		}
 	} else {
 		if !fi.IsDir() {

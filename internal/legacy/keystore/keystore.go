@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -24,6 +23,7 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 
+	"github.com/dcrlabs/ltcwallet/internal/legacy/rename"
 	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ltcsuite/ltcd/btcec/v2"
 	"github.com/ltcsuite/ltcd/btcec/v2/ecdsa"
@@ -32,7 +32,6 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/legacy/rename"
 )
 
 const (
@@ -234,7 +233,7 @@ func chainedPubKey(pubkey, chaincode []byte) ([]byte, error) {
 	var xorBytesScalar btcec.ModNScalar
 	overflow := xorBytesScalar.SetBytes(&xorbytes)
 	if overflow != 0 {
-		return nil, fmt.Errorf("unable to create pubkey: %v", err)
+		return nil, fmt.Errorf("unable to create pubkey due to overflow")
 	}
 
 	var (
@@ -843,7 +842,7 @@ func (s *Store) WriteIfDirty() error {
 	}
 
 	// TempFile creates the file 0600, so no need to chmod it.
-	fi, err := ioutil.TempFile(s.dir, s.file)
+	fi, err := os.CreateTemp(s.dir, s.file)
 	if err != nil {
 		s.mtx.RUnlock()
 		return err

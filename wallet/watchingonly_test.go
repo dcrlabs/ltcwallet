@@ -5,20 +5,19 @@
 package wallet
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
 )
 
 // TestCreateWatchingOnly checks that we can construct a watching-only
 // wallet.
 func TestCreateWatchingOnly(t *testing.T) {
 	// Set up a wallet.
-	dir, err := ioutil.TempDir("", "watchingonly_test")
+	dir, err := os.MkdirTemp("", "watchingonly_test")
 	if err != nil {
 		t.Fatalf("Failed to create db dir: %v", err)
 	}
@@ -28,6 +27,7 @@ func TestCreateWatchingOnly(t *testing.T) {
 
 	loader := NewLoader(
 		&chaincfg.TestNet4Params, dir, true, defaultDBTimeout, 250,
+		WithWalletSyncRetryInterval(10*time.Millisecond),
 	)
 	_, err = loader.CreateNewWatchingOnlyWallet(pubPass, time.Now())
 	if err != nil {

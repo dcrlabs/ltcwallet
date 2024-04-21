@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/txscript"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
 	"github.com/stretchr/testify/require"
 )
 
@@ -71,6 +71,11 @@ type testCase struct {
 	expectedChangeAddr string
 }
 
+// TODO: The test cases below use the correct key scopes with ltc coin id = 2.
+// When ltcwallet first forked, they neglected to change the coin id from the
+// bitcoin value = 0. Check to make sure that imported wallets that may have
+// created addresses with the incorrect coin ids are still imported correctly.
+
 var (
 	testCases = []*testCase{{
 		name: "bip44 with nested witness address type",
@@ -80,8 +85,8 @@ var (
 		accountIndex:       0,
 		addrType:           waddrmgr.NestedWitnessPubKey,
 		expectedScope:      waddrmgr.KeyScopeBIP0049Plus,
-		expectedAddr:       "QYuE5H1muNb39jjkBh9P7XNftC1AD2McoD",
-		expectedChangeAddr: "QbJb769D46HPc7b4yGwVAsdtNZnMFegr3Q",
+		expectedAddr:       "QdgHt4hN289wZbVWqmHoEPUtPA8joPwMW9",
+		expectedChangeAddr: "QNSDM3VJ4Ecohm6PtUwjCabienX7BfKEd5",
 	}, {
 		name: "bip44 with witness address type",
 		masterPriv: "tprv8ZgxMBicQKsPeWwrFuNjEGTTDSY4mRLwd2KDJAPGa1AY" +
@@ -90,8 +95,8 @@ var (
 		accountIndex:       777,
 		addrType:           waddrmgr.WitnessPubKey,
 		expectedScope:      waddrmgr.KeyScopeBIP0084,
-		expectedAddr:       "tb1qllxcutkzsukf8u8c8stkp464j0esu9xq7qju8x",
-		expectedChangeAddr: "tb1qu6jmqglrthscptjqj3egx54wy8xqvzn5hslgw7",
+		expectedAddr:       "tltc1qnhgyn2z67ye50ns4huxuvfhghmktzgr20a562q",
+		expectedChangeAddr: "tltc1qxyqd8jvr2g6vy8qmj08m6mmr6vm688lz5kvm8p",
 	}, {
 		name: "traditional bip49",
 		masterPriv: "uprv8tXDerPXZ1QsVp8y6GAMSMYxPQgWi3LSY8qS5ZH9x1YRu" +
@@ -100,8 +105,8 @@ var (
 		accountIndex:       9,
 		addrType:           waddrmgr.NestedWitnessPubKey,
 		expectedScope:      waddrmgr.KeyScopeBIP0049Plus,
-		expectedAddr:       "QeZ4GXrWYftuV1HKT9Kbhg3ABzWUB842Sr",
-		expectedChangeAddr: "QWxLum897M6eWep4LbLRvfsaVvHe5pq5za",
+		expectedAddr:       "QhacLWS8hgsD493ZUKuDzyJGC7idz8yZTr",
+		expectedChangeAddr: "QdZF5yJGkVJXbgXX4yDdZBiLtTbrcqYP7Y",
 	}, {
 		name: "bip49+",
 		masterPriv: "uprv8tXDerPXZ1QsVp8y6GAMSMYxPQgWi3LSY8qS5ZH9x1YRu" +
@@ -110,8 +115,8 @@ var (
 		accountIndex:       9,
 		addrType:           waddrmgr.WitnessPubKey,
 		expectedScope:      waddrmgr.KeyScopeBIP0049Plus,
-		expectedAddr:       "2NBCJ9WzGXZqpLpXGq3Hacybj3c4eHRcqgh",
-		expectedChangeAddr: "tb1qeqn05w2hfq6axpdprhs4y7x65gxkkvfvyxqk4u",
+		expectedAddr:       "QhacLWS8hgsD493ZUKuDzyJGC7idz8yZTr",
+		expectedChangeAddr: "tltc1qpys8g8l7duwjvlmzkeyfpcyqxfzsv95fc7zz75",
 	}, {
 		name: "bip84",
 		masterPriv: "vprv9DMUxX4ShgxMM7L5vcwyeSeTZNpxefKwTFMerxB3L1vJ" +
@@ -120,14 +125,16 @@ var (
 		accountIndex:       1,
 		addrType:           waddrmgr.WitnessPubKey,
 		expectedScope:      waddrmgr.KeyScopeBIP0084,
-		expectedAddr:       "tb1q5vepvcl0z8xj7kps4rsux722r4dvfwlhk6j532",
-		expectedChangeAddr: "tb1qlwe2kgxcsa8x4huu79yff4rze0l5mwafg5c7xd",
+		expectedAddr:       "tltc1qgzww52d2jswxl5zmnltq0d30txtvyvhy8flfqx",
+		expectedChangeAddr: "tltc1q6erkczs550rzemk8ut54aekhyla5tuqdk8vc08",
 	}}
 )
 
 // TestImportAccount tests that extended public keys can successfully be
 // imported into both watch only and normal wallets.
 func TestImportAccount(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range testCases {
 		tc := tc
 

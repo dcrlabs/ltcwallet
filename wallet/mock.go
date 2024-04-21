@@ -3,11 +3,11 @@ package wallet
 import (
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/chain"
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/chain"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
 )
 
 type mockChainClient struct {

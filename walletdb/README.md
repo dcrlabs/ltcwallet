@@ -1,8 +1,8 @@
 walletdb
 ========
 
-[![Build Status](https://travis-ci.org/ltcsuite/ltcwallet.png?branch=master)]
-(https://travis-ci.org/ltcsuite/ltcwallet)
+[![Build Status](https://travis-ci.org/dcrlabs/ltcwallet.png?branch=master)]
+(https://travis-ci.org/dcrlabs/ltcwallet)
 
 Package walletdb provides a namespaced database interface for ltcwallet.
 
@@ -43,27 +43,27 @@ boltdb project at https://github.com/boltdb/bolt by Ben B. Johnson.
 
 ## Documentation
 
-[![GoDoc](https://godoc.org/github.com/ltcsuite/ltcwallet/walletdb?status.png)]
-(http://godoc.org/github.com/ltcsuite/ltcwallet/walletdb)
+[![GoDoc](https://godoc.org/github.com/dcrlabs/ltcwallet/walletdb?status.png)]
+(http://godoc.org/github.com/dcrlabs/ltcwallet/walletdb)
 
 Full `go doc` style documentation for the project can be viewed online without
 installing this package by using the GoDoc site here:
-http://godoc.org/github.com/ltcsuite/ltcwallet/walletdb
+http://godoc.org/github.com/dcrlabs/ltcwallet/walletdb
 
 You can also view the documentation locally once the package is installed with
 the `godoc` tool by running `godoc -http=":6060"` and pointing your browser to
-http://localhost:6060/pkg/github.com/ltcsuite/ltcwallet/walletdb
+http://localhost:6060/pkg/github.com/dcrlabs/ltcwallet/walletdb
 
 ## Installation
 
 ```bash
-$ go get github.com/ltcsuite/ltcwallet/walletdb
+$ go get github.com/dcrlabs/ltcwallet/walletdb
 ```
 
 ## Examples
 
 * [Basic Usage Example]
-  (http://godoc.org/github.com/ltcsuite/ltcwallet/walletdb#example-package--BasicUsage)  
+  (http://godoc.org/github.com/dcrlabs/ltcwallet/walletdb#example-package--BasicUsage)  
   Demonstrates creating a new database, getting a namespace from it, and using a
   managed read-write transaction against the namespace to store and retrieve
   data.

@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/lnd/clock"
 	"github.com/ltcsuite/ltcd/blockchain"
 	"github.com/ltcsuite/ltcd/chaincfg"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 const (
@@ -834,7 +834,7 @@ func (s *Store) UnspentOutputs(ns walletdb.ReadBucket) ([]Credit, error) {
 		rec, err := fetchTxRecord(ns, &op.Hash, &block)
 		if err != nil {
 			return fmt.Errorf("unable to retrieve transaction %v: "+
-				"%v", op.Hash, err)
+				"%w", op.Hash, err)
 		}
 		txOut := rec.MsgTx.TxOut[op.Index]
 		cred := Credit{
@@ -883,7 +883,7 @@ func (s *Store) UnspentOutputs(ns walletdb.ReadBucket) ([]Credit, error) {
 		err = readRawTxRecord(&op.Hash, recVal, &rec)
 		if err != nil {
 			return fmt.Errorf("unable to retrieve raw transaction "+
-				"%v: %v", op.Hash, err)
+				"%v: %w", op.Hash, err)
 		}
 
 		txOut := rec.MsgTx.TxOut[op.Index]

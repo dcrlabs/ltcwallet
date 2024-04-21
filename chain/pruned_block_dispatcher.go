@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/spv/query"
 	"github.com/ltcsuite/lnd/ticker"
 	"github.com/ltcsuite/ltcd/blockchain"
 	"github.com/ltcsuite/ltcd/btcjson"
@@ -18,7 +20,6 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/peer"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/neutrino/query"
 )
 
 const (
@@ -134,7 +135,7 @@ type PrunedBlockDispatcher struct {
 
 	// workManager handles satisfying all of our incoming pruned block
 	// requests.
-	workManager *query.WorkManager
+	workManager query.WorkManager
 
 	// blocksQueried represents the set of pruned blocks we've been
 	// requested to query. Each block maps to a list of clients waiting to
@@ -143,7 +144,14 @@ type PrunedBlockDispatcher struct {
 	// NOTE: The blockMtx lock must always be held when accessing this
 	// field.
 	blocksQueried map[chainhash.Hash][]chan *wire.MsgBlock
-	blockMtx      sync.Mutex
+
+	// blockQueryCancel signals the cancellation of a `GetBlock` request.
+	//
+	// NOTE: The blockMtx lock must always be held when accessing this
+	// field.
+	blockQueryCancel map[chainhash.Hash][]chan<- error
+
+	blockMtx sync.Mutex
 
 	// currentPeers represents the set of peers we're currently connected
 	// to. Each peer found here will have a worker spawned within the
@@ -191,19 +199,20 @@ func NewPrunedBlockDispatcher(cfg *PrunedBlockDispatcherConfig) (
 	peersConnected := make(chan query.Peer)
 	return &PrunedBlockDispatcher{
 		cfg: *cfg,
-		workManager: query.New(&query.Config{
+		workManager: query.NewWorkManager(&query.Config{
 			ConnectedPeers: func() (<-chan query.Peer, func(), error) {
 				return peersConnected, func() {}, nil
 			},
 			NewWorker: query.NewWorker,
 			Ranking:   query.NewPeerRanking(),
 		}),
-		blocksQueried:  make(map[chainhash.Hash][]chan *wire.MsgBlock),
-		currentPeers:   make(map[string]*peer.Peer),
-		bannedPeers:    make(map[string]struct{}),
-		peersConnected: peersConnected,
-		timeSource:     blockchain.NewMedianTime(),
-		quit:           make(chan struct{}),
+		blocksQueried:    make(map[chainhash.Hash][]chan *wire.MsgBlock),
+		blockQueryCancel: make(map[chainhash.Hash][]chan<- error),
+		currentPeers:     make(map[string]*peer.Peer),
+		bannedPeers:      make(map[string]struct{}),
+		peersConnected:   peersConnected,
+		timeSource:       blockchain.NewMedianTime(),
+		quit:             make(chan struct{}),
 	}, nil
 }
 
@@ -338,7 +347,7 @@ func (d *PrunedBlockDispatcher) connectToPeer(addr string) (bool, error) {
 	peer, err := d.newQueryPeer(addr)
 	if err != nil {
 		return true, fmt.Errorf("unable to configure query peer %v: "+
-			"%v", addr, err)
+			"%w", addr, err)
 	}
 
 	// Establish the connection and wait for the protocol negotiation to
@@ -386,8 +395,26 @@ func (d *PrunedBlockDispatcher) connectToPeer(addr string) (bool, error) {
 // requests, i.e., any peer which is not considered a segwit-enabled
 // "full-node".
 func filterPeers(peers []btcjson.GetPeerInfoResult) ([]string, error) {
-	var eligible []string
+	var eligible []string // nolint:prealloc
+
+	// First we sort the peers by the measured ping time, to choose the best
+	// peers to fetch blocks from.
+	sort.Slice(peers, func(i, j int) bool {
+		return peers[i].PingTime < peers[j].PingTime
+	})
+
 	for _, peer := range peers {
+		// We cannot use the inbound peers here because the referenced
+		// port in the `addr` field is not the listen port for the p2p
+		// connection but a random outgoing port of the peer.
+		if peer.Inbound {
+			log.Debugf("Inbound peer %v not considering for "+
+				"outbound connection to fetch pruned blocks",
+				peer)
+
+			continue
+		}
+
 		rawServices, err := hex.DecodeString(peer.Services)
 		if err != nil {
 			return nil, err
@@ -502,9 +529,10 @@ func (d *PrunedBlockDispatcher) banPeer(peer string) {
 
 // Query submits a request to query the information of the given blocks.
 func (d *PrunedBlockDispatcher) Query(blocks []*chainhash.Hash,
+	cancelChan chan<- error,
 	opts ...query.QueryOption) (<-chan *wire.MsgBlock, <-chan error) {
 
-	reqs, blockChan, err := d.newRequest(blocks)
+	reqs, blockChan, err := d.newRequest(blocks, cancelChan)
 	if err != nil {
 		errChan := make(chan error, 1)
 		errChan <- err
@@ -515,14 +543,18 @@ func (d *PrunedBlockDispatcher) Query(blocks []*chainhash.Hash,
 	if len(reqs) > 0 {
 		errChan = d.workManager.Query(reqs, opts...)
 	}
+
 	return blockChan, errChan
 }
 
 // newRequest construct a new query request for the given blocks to submit to
 // the internal workManager. A channel is also returned through which the
 // requested blocks are sent through.
-func (d *PrunedBlockDispatcher) newRequest(blocks []*chainhash.Hash) (
-	[]*query.Request, <-chan *wire.MsgBlock, error) {
+//
+// NOTE: The cancelChan must be buffered.
+func (d *PrunedBlockDispatcher) newRequest(blocks []*chainhash.Hash,
+	cancelChan chan<- error) ([]*query.Request, <-chan *wire.MsgBlock,
+	error) {
 
 	// Make sure the channel is buffered enough to handle all blocks.
 	blockChan := make(chan *wire.MsgBlock, len(blocks))
@@ -543,13 +575,17 @@ func (d *PrunedBlockDispatcher) newRequest(blocks []*chainhash.Hash) (
 
 		if _, ok := d.blocksQueried[*block]; !ok {
 			log.Debugf("Queuing new block %v for request", *block)
-			inv := wire.NewInvVect(wire.InvTypeBlock, block)
+			inv := wire.NewInvVect(wire.InvTypeWitnessBlock, block)
 			if err := getData.AddInvVect(inv); err != nil {
 				return nil, nil, err
 			}
 		} else {
 			log.Debugf("Received new request for pending query of "+
 				"block %v", *block)
+
+			d.blockQueryCancel[*block] = append(
+				d.blockQueryCancel[*block], cancelChan,
+			)
 		}
 
 		d.blocksQueried[*block] = append(
@@ -614,11 +650,27 @@ func (d *PrunedBlockDispatcher) handleResp(req, resp wire.Message,
 			Finished:   false,
 		}
 	}
+	copyblockChans := make([]chan *wire.MsgBlock, len(blockChans))
+	copy(copyblockChans, blockChans)
 
 	err := blockchain.CheckBlockSanity(
 		ltcutil.NewBlock(block), d.cfg.ChainParams.PowLimit,
 		d.timeSource,
 	)
+	if err != nil {
+		d.blockMtx.Unlock()
+
+		log.Warnf("Received invalid block %v from peer %v: %v",
+			blockHash, peer, err)
+		d.banPeer(peer)
+
+		return query.Progress{
+			Progressed: false,
+			Finished:   false,
+		}
+	}
+
+	err = blockchain.ValidateWitnessCommitment(ltcutil.NewBlock(block))
 	if err != nil {
 		d.blockMtx.Unlock()
 
@@ -653,7 +705,7 @@ func (d *PrunedBlockDispatcher) handleResp(req, resp wire.Message,
 	go func() {
 		defer d.wg.Done()
 
-		for _, blockChan := range blockChans {
+		for _, blockChan := range copyblockChans {
 			select {
 			case blockChan <- block:
 			case <-d.quit:
@@ -663,4 +715,53 @@ func (d *PrunedBlockDispatcher) handleResp(req, resp wire.Message,
 	}()
 
 	return progress
+}
+
+// CancelRequest removes all information regarding a failed block request.
+// When for example the Peer disconnects or runs in a timeout we make sure
+// that all related information is deleted and a new request for this block
+// can be registered. Moreover will also cancel all depending goroutines.
+func (d *PrunedBlockDispatcher) CancelRequest(blockHash chainhash.Hash,
+	err error) {
+
+	// failDependant is a helper function which fails all dependant
+	// goroutines via their cancel channels.
+	failDependant := func(cancelChans []chan<- error) {
+		defer d.wg.Done()
+
+		for _, cancel := range cancelChans {
+			select {
+			case cancel <- err:
+			case <-d.quit:
+				return
+			}
+		}
+	}
+
+	d.blockMtx.Lock()
+
+	// Before removing the block hash we get the cancelChans which were
+	// registered for block requests that had already an ongoing pending
+	// request.
+	cancelChans, ok := d.blockQueryCancel[blockHash]
+	var copycancelChans []chan<- error
+	if ok {
+		copycancelChans = make([]chan<- error, len(cancelChans))
+		copy(copycancelChans, cancelChans)
+	}
+
+	// Remove all data related to this block request to make sure the same
+	// block can be registered again in the future.
+	delete(d.blocksQueried, blockHash)
+	delete(d.blockQueryCancel, blockHash)
+
+	d.blockMtx.Unlock()
+
+	// In case there are goroutines depending on this block request we
+	// make sure we cancel them.
+	// We do this in a goroutine to not block the initial request.
+	if ok {
+		d.wg.Add(1)
+		go failDependant(copycancelChans)
+	}
 }

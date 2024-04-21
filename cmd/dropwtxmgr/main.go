@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/dcrlabs/ltcwallet/wallet"
+	"github.com/dcrlabs/ltcwallet/walletdb"
+	_ "github.com/dcrlabs/ltcwallet/walletdb/bdb"
 	"github.com/jessevdk/go-flags"
 	"github.com/ltcsuite/ltcd/ltcutil"
-	"github.com/ltcsuite/ltcwallet/wallet"
-	"github.com/ltcsuite/ltcwallet/walletdb"
-	_ "github.com/ltcsuite/ltcwallet/walletdb/bdb"
 )
 
 const defaultNet = "mainnet"

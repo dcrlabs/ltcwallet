@@ -6,12 +6,14 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"golang.org/x/crypto/ssh/terminal"
-
+	"github.com/dcrlabs/ltcwallet/internal/cfgutil"
+	"github.com/dcrlabs/ltcwallet/netparams"
+	"github.com/dcrlabs/ltcwallet/wallet/txauthor"
+	"github.com/dcrlabs/ltcwallet/wallet/txrules"
+	"github.com/dcrlabs/ltcwallet/wallet/txsizes"
 	"github.com/jessevdk/go-flags"
 	"github.com/ltcsuite/ltcd/btcjson"
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
@@ -19,11 +21,7 @@ import (
 	"github.com/ltcsuite/ltcd/rpcclient"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/internal/cfgutil"
-	"github.com/ltcsuite/ltcwallet/netparams"
-	"github.com/ltcsuite/ltcwallet/wallet/txauthor"
-	"github.com/ltcsuite/ltcwallet/wallet/txrules"
-	"github.com/ltcsuite/ltcwallet/wallet/txsizes"
+	"golang.org/x/term"
 )
 
 var (
@@ -38,7 +36,7 @@ func fatalf(format string, args ...interface{}) {
 }
 
 func errContext(err error, context string) error {
-	return fmt.Errorf("%s: %v", context, err)
+	return fmt.Errorf("%s: %w", context, err)
 }
 
 // Flags.
@@ -223,7 +221,7 @@ func sweep() error {
 	}
 
 	// Open RPC client.
-	rpcCertificate, err := ioutil.ReadFile(opts.RPCCertificateFile)
+	rpcCertificate, err := os.ReadFile(opts.RPCCertificateFile)
 	if err != nil {
 		return errContext(err, "failed to read RPC certificate")
 	}
@@ -336,7 +334,7 @@ func sweep() error {
 func promptSecret(what string) (string, error) {
 	fmt.Printf("%s: ", what)
 	fd := int(os.Stdin.Fd())
-	input, err := terminal.ReadPassword(fd)
+	input, err := term.ReadPassword(fd)
 	fmt.Println()
 	if err != nil {
 		return "", err

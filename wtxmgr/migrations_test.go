@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ltcsuite/ltcwallet/walletdb"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 )
 
 // applyMigration is a helper function that allows us to assert the state of the

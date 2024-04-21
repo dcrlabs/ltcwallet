@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dcrlabs/ltcwallet/waddrmgr"
+	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/ltcutil/hdkeychain"
 	"github.com/ltcsuite/ltcd/ltcutil/psbt"
 	"github.com/ltcsuite/ltcd/txscript"
 	"github.com/ltcsuite/ltcd/wire"
-	"github.com/ltcsuite/ltcwallet/waddrmgr"
-	"github.com/ltcsuite/ltcwallet/walletdb"
 )
 
 var (
@@ -135,7 +135,7 @@ func (w *Wallet) FetchInputInfo(prevOut *wire.OutPoint) (*wire.MsgTx,
 	}
 	pubKeyAddr, ok := addr.(waddrmgr.ManagedPubKeyAddress)
 	if !ok {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, 0, ErrNotMine
 	}
 	keyScope, derivationPath, _ := pubKeyAddr.DerivationInfo()
 
@@ -143,7 +143,7 @@ func (w *Wallet) FetchInputInfo(prevOut *wire.OutPoint) (*wire.MsgTx,
 	_, currentHeight, err := w.chainClient.GetBestBlock()
 	if err != nil {
 		return nil, nil, nil, 0, fmt.Errorf("unable to retrieve current "+
-			"height: %v", err)
+			"height: %w", err)
 	}
 	confs := int64(0)
 	if txDetail.Block.Height != -1 {
