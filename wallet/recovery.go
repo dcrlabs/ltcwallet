@@ -72,6 +72,8 @@ func (rm *RecoveryManager) Resurrect(ns walletdb.ReadBucket,
 			ns, waddrmgr.DefaultAccountNum,
 		)
 		if err != nil {
+			// If we're upgrading to v9, we might not have an account until we
+			// unlock.
 			return err
 		}
 

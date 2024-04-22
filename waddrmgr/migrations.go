@@ -35,6 +35,10 @@ var versions = []migration.Version{
 		Number:    8,
 		Migration: storeMaxReorgDepth,
 	},
+	{
+		Number:    9,
+		Migration: addLitecoinKeyscopes,
+	},
 }
 
 // getLatestVersion returns the version number of the latest database version.
@@ -165,13 +169,13 @@ func upgradeToVersion5(ns walletdb.ReadWriteBucket) error {
 	// With the buckets created, we can now create the default BIP0044
 	// scope which will be the only scope usable in the database after this
 	// update.
-	scopeKey := scopeToBytes(&KeyScopeBIP0044)
-	scopeSchema := ScopeAddrMap[KeyScopeBIP0044]
+	scopeKey := scopeToBytes(&KeyScopeBIP0044WithBitcoinCoinID)
+	scopeSchema := ScopeAddrMap[KeyScopeBIP0044WithBitcoinCoinID]
 	schemaBytes := scopeSchemaToBytes(&scopeSchema)
 	if err := scopeSchemas.Put(scopeKey[:], schemaBytes); err != nil {
 		return err
 	}
-	if err := createScopedManagerNS(scopeBucket, &KeyScopeBIP0044); err != nil {
+	if err := createScopedManagerNS(scopeBucket, &KeyScopeBIP0044WithBitcoinCoinID); err != nil {
 		return err
 	}
 
@@ -412,5 +416,26 @@ func storeMaxReorgDepth(ns walletdb.ReadWriteBucket) error {
 		}
 	}
 
+	return nil
+}
+
+// addLitecoinKeyscopes adds db namspaces for the key scopes with the litecoin
+// coin IDs. When ltcwallet forked, they did not properly configure the coin
+// IDs. The new IDs were added when dcrlabs forked ltcwallet.
+func addLitecoinKeyscopes(ns walletdb.ReadWriteBucket) error {
+	scopeBucket := ns.NestedReadWriteBucket(scopeBucketName)
+	scopeSchemas := ns.NestedReadWriteBucket(scopeSchemaBucketName)
+
+	for _, scope := range litecoinKeyScopes {
+		scopeKey := scopeToBytes(&scope)
+		scopeSchema := ScopeAddrMap[scope]
+		schemaBytes := scopeSchemaToBytes(&scopeSchema)
+		if err := scopeSchemas.Put(scopeKey[:], schemaBytes); err != nil {
+			return err
+		}
+		if err := createScopedManagerNS(scopeBucket, &scope); err != nil {
+			return err
+		}
+	}
 	return nil
 }

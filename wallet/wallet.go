@@ -1388,10 +1388,19 @@ out:
 	for {
 		select {
 		case req := <-w.unlockRequests:
-			err := walletdb.View(w.db, func(tx walletdb.ReadTx) error {
-				addrmgrNs := tx.ReadBucket(waddrmgrNamespaceKey)
-				return w.Manager.Unlock(addrmgrNs, req.passphrase)
-			})
+			var err error
+			if w.Manager.NeedsV9Migration() {
+				err = walletdb.Update(w.db, func(tx walletdb.ReadWriteTx) error {
+					addrmgrNs := tx.ReadWriteBucket(waddrmgrNamespaceKey)
+					return w.Manager.UnlockAndEnsureV9Migration(addrmgrNs, req.passphrase)
+				})
+			} else {
+				err = walletdb.View(w.db, func(tx walletdb.ReadTx) error {
+					addrmgrNs := tx.ReadBucket(waddrmgrNamespaceKey)
+					return w.Manager.Unlock(addrmgrNs, req.passphrase)
+				})
+			}
+
 			if err != nil {
 				req.err <- err
 				continue

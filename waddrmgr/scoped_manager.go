@@ -269,6 +269,13 @@ var (
 		},
 	}
 
+	litecoinKeyScopes = []KeyScope{
+		KeyScopeBIP0049Plus,
+		KeyScopeBIP0084,
+		KeyScopeBIP0086,
+		KeyScopeBIP0044,
+	}
+
 	// KeyScopeBIP0049AddrSchema is the address schema for the traditional
 	// BIP-0049 derivation scheme. This exists in order to support importing
 	// accounts from other wallets that don't use our modified BIP-0049
@@ -505,6 +512,7 @@ func (s *ScopedKeyManager) loadAccountInfo(ns walletdb.ReadBucket,
 
 		// Use the crypto public key to decrypt the account public
 		// extended key.
+
 		acctInfo.acctKeyPub, err = decryptKey(
 			s.rootManager.cryptoKeyPub, row.pubKeyEncrypted,
 		)

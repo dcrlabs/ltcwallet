@@ -466,6 +466,8 @@ func (s *NeutrinoClient) NotifyReceived(addrs []ltcutil.Address) error {
 	// addresses to the watch list.
 	if s.scanning {
 		s.clientMtx.Unlock()
+		// Send a notification to the rescan loop to add the address to the
+		// filter data.
 		return s.rescan.Update(neutrino.AddAddrs(addrs...))
 	}
 
