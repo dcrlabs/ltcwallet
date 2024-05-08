@@ -54,7 +54,7 @@ var (
 	// TODO: Implement load limiting for both outgoing and incoming
 	// messages.
 	numQueryThreads = 20
-	queryOptions    = []neutrino.QueryOption{}
+	queryOptions    = []QueryOption{}
 
 	// The logged sequence of events we want to see. The value of i
 	// represents the block for which a loop is generating a log entry,
@@ -459,10 +459,10 @@ func testStartRescan(harness *neutrinoHarness, t *testing.T) {
 			if ourIndex == 1<<30 {
 				err = fmt.Errorf("Couldn't find our address " +
 					"in the passed transaction's outputs.")
-				return
+				return 0, nil, nil, nil, err
 			}
-			total = target
-			inputs = []*wire.TxIn{
+			total := target
+			inputs := []*wire.TxIn{
 				{
 					PreviousOutPoint: wire.OutPoint{
 						Hash:  tx.TxHash(),
@@ -814,8 +814,8 @@ func testRescanResults(harness *neutrinoHarness, t *testing.T) {
 		t.Fatalf("Rescan ended with error: %s", err)
 	}
 
-	// Immediately try to add a new update to to the rescan that was just
-	// shut down. This should fail as it is no longer running.
+	// Immediately try to add a new update to the rescan that was just shut
+	// down. This should fail as it is no longer running.
 	rescan.WaitForShutdown()
 	err = rescan.Update(neutrino.AddAddrs(addr2), neutrino.Rewind(1095))
 	if err == nil {

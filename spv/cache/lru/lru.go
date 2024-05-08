@@ -1,34 +1,11 @@
 package lru
 
 import (
-	"container/list"
 	"fmt"
 	"sync"
 
 	"github.com/dcrlabs/ltcwallet/spv/cache"
 )
-
-// elementMap is an alias for a map from a generic interface to a list.Element.
-type elementMap[K comparable] struct {
-	// TODO(roasbeef): list.List generic version?
-	m map[K]*list.Element
-}
-
-// Del deletes an item from the cache.
-func (e *elementMap[K]) Del(key K) {
-	delete(e.m, key)
-}
-
-// Lookup attempts to lookup a value in the cache.
-func (e *elementMap[K]) Lookup(key K) (*list.Element, bool) {
-	el, ok := e.m[key]
-	return el, ok
-}
-
-// Store attempts to store an item in the cache.
-func (e *elementMap[K]) Store(key K, val *list.Element) {
-	e.m[key] = val
-}
 
 // entry represents a (key,value) pair entry in the Cache. The Cache's list
 // stores entries which let us get the cache key when an entry is evicted.
@@ -49,11 +26,11 @@ type Cache[K comparable, V cache.Value] struct {
 
 	// ll is a doubly linked list which keeps track of recency of used
 	// elements by moving them to the front.
-	ll *list.List
+	ll *List[entry[K, V]]
 
 	// cache is a generic cache which allows us to find an elements position
 	// in the ll list from a given key.
-	cache elementMap[K]
+	cache syncMap[K, *Element[entry[K, V]]]
 
 	// mtx is used to make sure the Cache is thread-safe.
 	mtx sync.RWMutex
@@ -64,10 +41,8 @@ type Cache[K comparable, V cache.Value] struct {
 func NewCache[K comparable, V cache.Value](capacity uint64) *Cache[K, V] {
 	return &Cache[K, V]{
 		capacity: capacity,
-		ll:       list.New(),
-		cache: elementMap[K]{
-			m: make(map[K]*list.Element),
-		},
+		ll:       NewList[entry[K, V]](),
+		cache:    syncMap[K, *Element[entry[K, V]]]{},
 	}
 }
 
@@ -93,7 +68,7 @@ func (c *Cache[K, V]) evict(needed uint64) (bool, error) {
 		// Find the least recently used item.
 		if elr := c.ll.Back(); elr != nil {
 			// Determine lru item's size.
-			ce := elr.Value.(*entry[K, V])
+			ce := elr.Value
 			es, err := ce.value.Size()
 			if err != nil {
 				return false, fmt.Errorf("couldn't determine "+
@@ -106,7 +81,7 @@ func (c *Cache[K, V]) evict(needed uint64) (bool, error) {
 
 			// Remove the element from the cache.
 			c.ll.Remove(elr)
-			c.cache.Del(ce.key)
+			c.cache.Delete(ce.key)
 			evicted = true
 		}
 	}
@@ -130,17 +105,22 @@ func (c *Cache[K, V]) Put(key K, value V) (bool, error) {
 			"cache with capacity %v", vs, c.capacity)
 	}
 
+	// Load the element.
+	el, ok := c.cache.Load(key)
+
+	// Update the internal list inside a lock.
 	c.mtx.Lock()
-	defer c.mtx.Unlock()
 
 	// If the element already exists, remove it and decrease cache's size.
-	el, ok := c.cache.Lookup(key)
 	if ok {
-		es, err := el.Value.(*entry[K, V]).value.Size()
+		es, err := el.Value.value.Size()
 		if err != nil {
+			c.mtx.Unlock()
+
 			return false, fmt.Errorf("couldn't determine size of "+
 				"existing cache value %v", err)
 		}
+
 		c.ll.Remove(el)
 		c.size -= es
 	}
@@ -153,9 +133,14 @@ func (c *Cache[K, V]) Put(key K, value V) (bool, error) {
 	}
 
 	// We have made enough space in the cache, so just insert it.
-	el = c.ll.PushFront(&entry[K, V]{key, value})
-	c.cache.Store(key, el)
+	el = c.ll.PushFront(entry[K, V]{key, value})
 	c.size += vs
+
+	// Release the lock.
+	c.mtx.Unlock()
+
+	// Update the cache.
+	c.cache.Store(key, el)
 
 	return evicted, nil
 }
@@ -163,22 +148,22 @@ func (c *Cache[K, V]) Put(key K, value V) (bool, error) {
 // Get will return value for a given key, making the element the most recently
 // accessed item in the process. Will return nil if the key isn't found.
 func (c *Cache[K, V]) Get(key K) (V, error) {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
 	var defaultVal V
 
-	el, ok := c.cache.Lookup(key)
+	el, ok := c.cache.Load(key)
 	if !ok {
 		// Element not found in the cache.
 		return defaultVal, cache.ErrElementNotFound
 	}
 
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
 	// When the cache needs to evict a element to make space for another
 	// one, it starts eviction from the back, so by moving this element to
 	// the front, it's eviction is delayed because it's recently accessed.
 	c.ll.MoveToFront(el)
-	return el.Value.(*entry[K, V]).value, nil
+	return el.Value.value, nil
 }
 
 // Len returns number of elements in the cache.
@@ -187,4 +172,72 @@ func (c *Cache[K, V]) Len() int {
 	defer c.mtx.RUnlock()
 
 	return c.ll.Len()
+}
+
+// Delete removes an item from the cache.
+func (c *Cache[K, V]) Delete(key K) {
+	c.LoadAndDelete(key)
+}
+
+// LoadAndDelete queries an item and deletes it from the cache using the
+// specified key.
+func (c *Cache[K, V]) LoadAndDelete(key K) (V, bool) {
+	var defaultVal V
+
+	// Noop if the element doesn't exist.
+	el, ok := c.cache.LoadAndDelete(key)
+	if !ok {
+		return defaultVal, false
+	}
+
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
+	// Get its size.
+	vs, err := el.Value.value.Size()
+	if err != nil {
+		return defaultVal, false
+	}
+
+	// Remove the element from the list and update the cache's size.
+	c.ll.Remove(el)
+	c.size -= vs
+
+	return el.Value.value, true
+}
+
+// Range iterates the cache without any ordering.
+func (c *Cache[K, V]) Range(visitor func(K, V) bool) {
+	// valueVisitor is a closure to help unwrap the value from the cache.
+	valueVisitor := func(key K, value *Element[entry[K, V]]) bool {
+		return visitor(key, value.Value.value)
+	}
+
+	c.cache.Range(valueVisitor)
+}
+
+// RangeFILO iterates the items with FILO order, behaving like a stack.
+func (c *Cache[K, V]) RangeFILO(visitor func(K, V) bool) {
+	for e := c.ll.Front(); e != nil; e = e.Next() {
+		next := visitor(e.Value.key, e.Value.value)
+
+		// Stops the iteration if the visitor returns false to mimick
+		// the same behavior of `Range`.
+		if !next {
+			return
+		}
+	}
+}
+
+// RangeFIFO iterates the items with FIFO order, behaving like a queue.
+func (c *Cache[K, V]) RangeFIFO(visitor func(K, V) bool) {
+	for e := c.ll.Back(); e != nil; e = e.Prev() {
+		next := visitor(e.Value.key, e.Value.value)
+
+		// Stops the iteration if the visitor returns false to mimick
+		// the same behavior of `Range`.
+		if !next {
+			return
+		}
+	}
 }

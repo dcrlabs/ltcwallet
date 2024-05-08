@@ -35,8 +35,8 @@ type queryOptions struct {
 	// that the query should be canceled.
 	cancelChan chan struct{}
 
-	// numRetries tells the query how many times to retry asking each peer
-	// the query.
+	// numRetries is the number of times that a query should be retried
+	// before failing.
 	numRetries uint8
 
 	// noRetryMax is set if no cap should be applied to the number of times
@@ -57,7 +57,6 @@ func defaultQueryOptions() *queryOptions {
 		timeout:    defaultQueryTimeout,
 		encoding:   defaultQueryEncoding,
 		numRetries: defaultNumRetries,
-		cancelChan: nil,
 	}
 }
 
@@ -68,19 +67,11 @@ func (qo *queryOptions) applyQueryOptions(options ...QueryOption) {
 	}
 }
 
-// Timeout is a query option that specifies the total time a query is allowed
-// to be tried before it is failed.
-func Timeout(timeout time.Duration) QueryOption {
+// NumRetries is a query option that specifies the number of times a query
+// should be retried.
+func NumRetries(num uint8) QueryOption {
 	return func(qo *queryOptions) {
-		qo.timeout = timeout
-	}
-}
-
-// NumRetries is a query option that lets the query know the maximum number of
-// times each peer should be queried. The default is one.
-func NumRetries(numRetries uint8) QueryOption {
-	return func(qo *queryOptions) {
-		qo.numRetries = numRetries
+		qo.numRetries = num
 	}
 }
 
@@ -89,6 +80,14 @@ func NumRetries(numRetries uint8) QueryOption {
 func NoRetryMax() QueryOption {
 	return func(qo *queryOptions) {
 		qo.noRetryMax = true
+	}
+}
+
+// Timeout is a query option that specifies the total time a query is allowed
+// to be tried before it is failed.
+func Timeout(timeout time.Duration) QueryOption {
+	return func(qo *queryOptions) {
+		qo.timeout = timeout
 	}
 }
 

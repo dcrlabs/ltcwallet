@@ -65,8 +65,11 @@ type PeerRanking interface {
 	// queries.
 	Punish(peer string)
 
-	// Order sorst the slice of peers according to their ranking.
+	// Order sorts the slice of peers according to their ranking.
 	Order(peers []string)
+
+	// ResetRanking sets the score of the passed peer to the defaultScore.
+	ResetRanking(peerAddr string)
 }
 
 // activeWorker wraps a Worker that is currently running, together with the job
@@ -139,7 +142,6 @@ func (w *peerWorkManager) Start() error {
 	return nil
 }
 
-// Stop stops the WorkManager and all underlying goroutines.
 // Stop stops the peerWorkManager and all underlying goroutines.
 //
 // NOTE: this is part of the WorkManager interface.
@@ -181,6 +183,7 @@ func (w *peerWorkManager) workDispatcher() {
 		timeout    <-chan time.Time
 		rem        int
 		errChan    chan error
+		cancelChan chan struct{}
 	}
 
 	// We set up a batch index counter to keep track of batches that still
@@ -308,7 +311,20 @@ Loop:
 			// turns out to be an error.
 			batchNum := currentQueries[result.job.index]
 			delete(currentQueries, result.job.index)
-			batch := currentBatches[batchNum]
+
+			// In case the batch is already canceled we return
+			// early.
+			batch, ok := currentBatches[batchNum]
+			if !ok {
+				log.Warnf("Query(%d) result from peer %v "+
+					"discarded with retries %d, because "+
+					"batch already canceled: %v",
+					result.job.index,
+					result.peer.Addr(),
+					result.job.tries, result.err)
+
+				continue Loop
+			}
 
 			switch {
 			// If the query ended because it was canceled, drop it.
@@ -321,31 +337,34 @@ Loop:
 				// was canceled, forward the error on the
 				// batch's error channel.  We do this since a
 				// cancellation applies to the whole batch.
-				if batch != nil {
-					batch.errChan <- result.err
-					delete(currentBatches, batchNum)
-					batch = nil
+				batch.errChan <- result.err
+				delete(currentBatches, batchNum)
 
-					log.Debugf("Canceled batch %v",
-						batchNum)
-					continue Loop
-				}
+				log.Debugf("Canceled batch %v", batchNum)
+				continue Loop
 
 			// If the query ended with any other error, put it back
 			// into the work queue if it has not reached the
 			// maximum number of retries.
 			case result.err != nil:
-				// Punish the peer for the failed query.
-				w.cfg.Ranking.Punish(result.peer.Addr())
+				// Refresh peer rank on disconnect.
+				if result.err == ErrPeerDisconnected {
+					w.cfg.Ranking.ResetRanking(
+						result.peer.Addr(),
+					)
+				} else {
+					// Punish the peer for the failed query.
+					w.cfg.Ranking.Punish(result.peer.Addr())
+				}
 
-				if batch != nil && !batch.noRetryMax {
+				if !batch.noRetryMax {
 					result.job.tries++
 				}
 
 				// Check if this query has reached its maximum
 				// number of retries. If so, remove it from the
 				// batch and don't reschedule it.
-				if batch != nil && !batch.noRetryMax &&
+				if !batch.noRetryMax &&
 					result.job.tries >= batch.maxRetries {
 
 					log.Warnf("Query(%d) from peer %v "+
@@ -383,52 +402,55 @@ Loop:
 				heap.Push(work, result.job)
 				currentQueries[result.job.index] = batchNum
 
-			// Otherwise we we got a successful result and  update
-			// the status of the batch this query is a part of.
+			// Otherwise, we got a successful result and update the
+			// status of the batch this query is a part of.
 			default:
 				// Reward the peer for the successful query.
 				w.cfg.Ranking.Reward(result.peer.Addr())
 
 				// Decrement the number of queries remaining in
 				// the batch.
-				if batch != nil {
-					batch.rem--
-					log.Tracef("Remaining jobs for batch "+
-						"%v: %v ", batchNum, batch.rem)
+				batch.rem--
+				log.Tracef("Remaining jobs for batch "+
+					"%v: %v ", batchNum, batch.rem)
 
-					// If this was the last query in flight
-					// for this batch, we can notify that
-					// it finished, and delete it.
-					if batch.rem == 0 {
-						batch.errChan <- nil
-						delete(currentBatches, batchNum)
-						batch = nil
+				// If this was the last query in flight
+				// for this batch, we can notify that
+				// it finished, and delete it.
+				if batch.rem == 0 {
+					batch.errChan <- nil
+					delete(currentBatches, batchNum)
 
-						log.Tracef("Batch %v done",
-							batchNum)
-						continue Loop
-					}
+					log.Tracef("Batch %v done",
+						batchNum)
+					continue Loop
 				}
 			}
 
 			// If the total timeout for this batch has passed,
 			// return an error.
-			if batch != nil {
-				select {
-				case <-batch.timeout:
-					batch.errChan <- ErrQueryTimeout
-					delete(currentBatches, batchNum)
-					batch = nil
+			select {
+			case <-batch.timeout:
+				batch.errChan <- ErrQueryTimeout
+				delete(currentBatches, batchNum)
 
-					log.Warnf("Query(%d) failed with "+
-						"error: %v. Timing out.",
-						result.job.index, result.err)
-
-					log.Debugf("Batch %v timed out",
-						batchNum)
-
-				default:
+				// When deleting the particular batch
+				// number we need to make sure to cancel
+				// all queued and ongoing queryJobs
+				// to not waste resources when the batch
+				// call is already canceled.
+				if batch.cancelChan != nil {
+					close(batch.cancelChan)
 				}
+
+				log.Warnf("Query(%d) failed with "+
+					"error: %v. Timing out.",
+					result.job.index, result.err)
+
+				log.Warnf("Batch %v timed out",
+					batchNum)
+
+			default:
 			}
 
 		// A new batch of queries where scheduled.
@@ -439,13 +461,17 @@ Loop:
 			log.Debugf("Adding new batch(%d) of %d queries to "+
 				"work queue", batchIndex, len(batch.requests))
 
+			// Internal cancel channel of a batch request.
+			cancelChan := make(chan struct{})
+
 			for _, q := range batch.requests {
 				heap.Push(work, &queryJob{
-					index:      queryIndex,
-					timeout:    minQueryTimeout,
-					encoding:   batch.options.encoding,
-					cancelChan: batch.options.cancelChan,
-					Request:    q,
+					index:              queryIndex,
+					timeout:            minQueryTimeout,
+					encoding:           batch.options.encoding,
+					cancelChan:         batch.options.cancelChan,
+					internalCancelChan: cancelChan,
+					Request:            q,
 				})
 				currentQueries[queryIndex] = batchIndex
 				queryIndex++
@@ -454,9 +480,12 @@ Loop:
 			currentBatches[batchIndex] = &batchProgress{
 				noRetryMax: batch.options.noRetryMax,
 				maxRetries: batch.options.numRetries,
-				timeout:    time.After(batch.options.timeout),
+				timeout: time.After(
+					batch.options.timeout,
+				),
 				rem:        len(batch.requests),
 				errChan:    batch.errChan,
+				cancelChan: cancelChan,
 			}
 			batchIndex++
 

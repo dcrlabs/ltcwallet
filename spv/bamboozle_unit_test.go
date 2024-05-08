@@ -435,7 +435,7 @@ var (
 			badPeers:     []string{},
 		},
 		{
-			// One peer is serving a filter tha lacks an element,
+			// One peer is serving a filter that lacks an element,
 			// we should immediately notice this and ban it.
 			name: "filter missing element",
 			peerFilters: map[string]*gcs.Filter{
@@ -450,7 +450,7 @@ var (
 			// One peer is serving the "old-old" filter which
 			// contains all OP_RETURN output, we expect this peer
 			// to be banned first.
-			name: "old old peer",
+			name: "very old peer",
 			peerFilters: map[string]*gcs.Filter{
 				"a": correctFilter,
 				"b": oldFilter,
@@ -498,7 +498,7 @@ var (
 		},
 		{
 			// If we need at least 3 peers to consider a filter
-			// consistent, we shuold fail.
+			// consistent, we should fail.
 			name: "majority filter 3",
 			peerFilters: map[string]*gcs.Filter{
 				"a": correctFilter,

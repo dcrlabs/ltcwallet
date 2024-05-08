@@ -1,4 +1,4 @@
-package cache_test
+package spv
 
 import (
 	"crypto/rand"
@@ -29,11 +29,11 @@ func TestBlockFilterCaches(t *testing.T) {
 
 	// Initialize all types of caches we want to test, for both filters and
 	// blocks. Currently the LRU cache is the only implementation.
-	filterCaches := []cache.Cache[cache.FilterCacheKey, *cache.CacheableFilter]{
-		lru.NewCache[cache.FilterCacheKey, *cache.CacheableFilter](cacheSize),
+	filterCaches := []cache.Cache[FilterCacheKey, *CacheableFilter]{
+		lru.NewCache[FilterCacheKey, *CacheableFilter](cacheSize),
 	}
-	blockCaches := []cache.Cache[wire.InvVect, *cache.CacheableBlock]{
-		lru.NewCache[wire.InvVect, *cache.CacheableBlock](cacheSize),
+	blockCaches := []cache.Cache[wire.InvVect, *CacheableBlock]{
+		lru.NewCache[wire.InvVect, *CacheableBlock](cacheSize),
 	}
 
 	// Generate a list of hashes, filters and blocks that we will use as
@@ -60,9 +60,9 @@ func TestBlockFilterCaches(t *testing.T) {
 		filters = append(filters, filter)
 
 		// Put the generated filter in the filter caches.
-		cacheKey := cache.FilterCacheKey{blockHash, filterType}
+		cacheKey := FilterCacheKey{blockHash, filterType}
 		for _, c := range filterCaches {
-			_, _ = c.Put(cacheKey, &cache.CacheableFilter{Filter: filter})
+			_, _ = c.Put(cacheKey, &CacheableFilter{Filter: filter})
 		}
 
 		msgBlock := &wire.MsgBlock{}
@@ -75,7 +75,7 @@ func TestBlockFilterCaches(t *testing.T) {
 			wire.InvTypeWitnessBlock, &blockHash,
 		)
 		for _, c := range blockCaches {
-			_, _ = c.Put(*blockKey, &cache.CacheableBlock{block})
+			_, _ = c.Put(*blockKey, &CacheableBlock{block})
 		}
 	}
 
@@ -85,7 +85,7 @@ func TestBlockFilterCaches(t *testing.T) {
 		blockHash := blockHash
 
 		// Check filter caches.
-		cacheKey := cache.FilterCacheKey{blockHash, filterType}
+		cacheKey := FilterCacheKey{blockHash, filterType}
 		for _, c := range filterCaches {
 			e, err := c.Get(cacheKey)
 			if err != nil {

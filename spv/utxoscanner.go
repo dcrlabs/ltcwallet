@@ -353,7 +353,7 @@ scanToEnd:
 		default:
 		}
 
-		log.Debugf("Fetching block height=%d hash=%s", height, hash)
+		log.Debugf("Scan: Fetching block height=%d hash=%s", height, hash)
 
 		block, err := s.cfg.GetBlock(*hash)
 		if err != nil {
