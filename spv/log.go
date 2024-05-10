@@ -2,6 +2,8 @@ package spv
 
 import (
 	"github.com/dcrlabs/ltcwallet/spv/blockntfns"
+	"github.com/dcrlabs/ltcwallet/spv/chanutils"
+	"github.com/dcrlabs/ltcwallet/spv/filterdb"
 	"github.com/dcrlabs/ltcwallet/spv/pushtx"
 	"github.com/dcrlabs/ltcwallet/spv/query"
 
@@ -42,4 +44,6 @@ func UseLogger(logger btclog.Logger) {
 	pushtx.UseLogger(logger)
 	connmgr.UseLogger(logger)
 	query.UseLogger(logger)
+	filterdb.UseLogger(logger)
+	chanutils.UseLogger(logger)
 }

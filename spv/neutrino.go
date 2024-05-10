@@ -15,8 +15,8 @@ import (
 
 	"github.com/dcrlabs/ltcwallet/spv/banman"
 	"github.com/dcrlabs/ltcwallet/spv/blockntfns"
-	"github.com/dcrlabs/ltcwallet/spv/cache"
 	"github.com/dcrlabs/ltcwallet/spv/cache/lru"
+	"github.com/dcrlabs/ltcwallet/spv/chanutils"
 	"github.com/dcrlabs/ltcwallet/spv/filterdb"
 	"github.com/dcrlabs/ltcwallet/spv/headerfs"
 	"github.com/dcrlabs/ltcwallet/spv/pushtx"
@@ -77,7 +77,7 @@ var (
 	// DefaultFilterCacheSize is the size (in bytes) of filters neutrino
 	// will keep in memory if no size is specified in the neutrino.Config.
 	// Since we utilize the cache during batch filter fetching, it is
-	// beneficial if it is able to to keep a whole batch. The current batch
+	// beneficial if it is able to keep a whole batch. The current batch
 	// size is 1000, so we default to 30 MB, which can fit about 1450 to
 	// 2300 mainnet filters.
 	DefaultFilterCacheSize uint64 = 3120 * 10 * 1000
@@ -590,7 +590,7 @@ type Config struct {
 
 	// BlockCache is an LRU block cache. If none is provided then the a new
 	// one will be instantiated.
-	BlockCache *lru.Cache[wire.InvVect, *cache.CacheableBlock]
+	BlockCache *lru.Cache[wire.InvVect, *CacheableBlock]
 
 	// BlockCacheSize indicates the size (in bytes) of blocks the block
 	// cache will hold in memory at most. If a BlockCache is provided then
@@ -642,13 +642,8 @@ type ChainService struct { // nolint:maligned
 	RegFilterHeaders *headerfs.FilterHeaderStore
 	persistToDisk    bool
 
-	FilterCache *lru.Cache[cache.FilterCacheKey, *cache.CacheableFilter]
-	BlockCache  *lru.Cache[wire.InvVect, *cache.CacheableBlock]
-
-	// queryPeers will be called to send messages to one or more peers,
-	// expecting a response.
-	queryPeers func(wire.Message, func(*ServerPeer, wire.Message,
-		chan<- struct{}), ...QueryOption)
+	FilterCache *lru.Cache[FilterCacheKey, *CacheableFilter]
+	BlockCache  *lru.Cache[wire.InvVect, *CacheableBlock]
 
 	chainParams          chaincfg.Params
 	addrManager          *addrmgr.AddrManager
@@ -668,6 +663,7 @@ type ChainService struct { // nolint:maligned
 	broadcaster          *pushtx.Broadcaster
 	banStore             banman.Store
 	workManager          query.WorkManager
+	filterBatchWriter    *chanutils.BatchWriter[*filterdb.FilterData]
 
 	// peerSubscribers is a slice of active peer subscriptions, that we
 	// will notify each time a new peer is connected.
@@ -749,25 +745,32 @@ func NewChainService(cfg Config) (*ChainService, error) {
 		Ranking:        query.NewPeerRanking(),
 	})
 
-	// We set the queryPeers method to point to queryChainServicePeers,
-	// passing a reference to the newly created ChainService.
-	s.queryPeers = func(msg wire.Message, f func(*ServerPeer,
-		wire.Message, chan<- struct{}), qo ...QueryOption) {
-		queryChainServicePeers(&s, msg, f, qo...)
-	}
-
 	var err error
-
 	s.FilterDB, err = filterdb.New(cfg.Database, cfg.ChainParams)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.persistToDisk {
+		cfg := &chanutils.BatchWriterConfig[*filterdb.FilterData]{
+			QueueBufferSize:        chanutils.DefaultQueueSize,
+			MaxBatch:               1000,
+			DBWritesTickerDuration: time.Millisecond * 500,
+			PutItems:               s.FilterDB.PutFilters,
+		}
+
+		batchWriter := chanutils.NewBatchWriter[*filterdb.FilterData](
+			cfg,
+		)
+
+		s.filterBatchWriter = batchWriter
 	}
 
 	filterCacheSize := DefaultFilterCacheSize
 	if cfg.FilterCacheSize != 0 {
 		filterCacheSize = cfg.FilterCacheSize
 	}
-	s.FilterCache = lru.NewCache[cache.FilterCacheKey, *cache.CacheableFilter](
+	s.FilterCache = lru.NewCache[FilterCacheKey, *CacheableFilter](
 		filterCacheSize,
 	)
 
@@ -778,7 +781,7 @@ func NewChainService(cfg Config) (*ChainService, error) {
 		if cfg.BlockCacheSize != 0 {
 			blockCacheSize = cfg.BlockCacheSize
 		}
-		s.BlockCache = lru.NewCache[wire.InvVect, *cache.CacheableBlock](
+		s.BlockCache = lru.NewCache[wire.InvVect, *CacheableBlock](
 			blockCacheSize,
 		)
 	}
@@ -887,6 +890,7 @@ func NewChainService(cfg Config) (*ChainService, error) {
 
 				// Mark an attempt for the valid address.
 				s.addrManager.Attempt(addr.NetAddress())
+
 				return s.addrStringToNetAddr(addrString)
 			}
 
@@ -1003,7 +1007,7 @@ func (s *ChainService) BestBlock() (*headerfs.BlockStamp, error) {
 		return nil, err
 	}
 
-	// Filter headers might lag behind block headers, so we can can fetch a
+	// Filter headers might lag behind block headers, so we can fetch a
 	// previous block header if the filter headers are not caught up.
 	if filterHeight < bestHeight {
 		bestHeight = filterHeight
@@ -1436,7 +1440,7 @@ func (s *ChainService) handleDonePeerMsg(state *peerState, sp *ServerPeer) {
 	}
 }
 
-// disconnectPeer attempts to drop the connection of a tageted peer in the
+// disconnectPeer attempts to drop the connection of a targeted peer in the
 // passed peer list. Targets are identified via usage of the passed
 // `compareFunc`, which should return `true` if the passed peer is the target
 // peer. This function returns true on success and false if the peer is unable
@@ -1554,7 +1558,7 @@ func (s *ChainService) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) 
 	go s.peerDoneHandler(sp)
 }
 
-// peerDoneHandler handles peer disconnects by notifiying the server that it's
+// peerDoneHandler handles peer disconnects by notifying the server that it's
 // done along with other performing other desirable cleanup.
 func (s *ChainService) peerDoneHandler(sp *ServerPeer) {
 	sp.WaitForDisconnect()
@@ -1572,8 +1576,8 @@ func (s *ChainService) peerDoneHandler(sp *ServerPeer) {
 	close(sp.quit)
 }
 
-// UpdatePeerHeights updates the heights of all peers who have have announced
-// the latest connected main chain block, or a recognized orphan. These height
+// UpdatePeerHeights updates the heights of all peers who have announced the
+// latest connected main chain block, or a recognized orphan. These height
 // updates allow us to dynamically refresh peer heights, ensuring sync peer
 // selection has access to the latest block heights for each peer.
 func (s *ChainService) UpdatePeerHeights(latestBlkHash *chainhash.Hash,
@@ -1620,6 +1624,10 @@ func (s *ChainService) Start() error {
 			err)
 	}
 
+	if s.persistToDisk {
+		s.filterBatchWriter.Start()
+	}
+
 	go s.connManager.Start()
 
 	// Start the peer handler which in turn starts the address and block
@@ -1657,6 +1665,10 @@ func (s *ChainService) Stop() error {
 	if err := s.addrManager.Stop(); err != nil {
 		log.Errorf("error stopping address manager: %v", err)
 		returnErr = err
+	}
+
+	if s.persistToDisk {
+		s.filterBatchWriter.Stop()
 	}
 
 	// Signal the remaining goroutines to quit.

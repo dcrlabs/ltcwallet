@@ -1,4 +1,4 @@
-package cache
+package spv
 
 import (
 	"github.com/dcrlabs/ltcwallet/spv/filterdb"

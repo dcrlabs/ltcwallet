@@ -6,6 +6,7 @@ package wallet
 
 import (
 	"github.com/btcsuite/btclog"
+	"github.com/dcrlabs/ltcwallet/chain"
 	"github.com/dcrlabs/ltcwallet/waddrmgr"
 	"github.com/dcrlabs/ltcwallet/walletdb/migration"
 	"github.com/dcrlabs/ltcwallet/wtxmgr"
@@ -36,6 +37,7 @@ func UseLogger(logger btclog.Logger) {
 	migration.UseLogger(logger)
 	waddrmgr.UseLogger(logger)
 	wtxmgr.UseLogger(logger)
+	chain.UseLogger(logger)
 }
 
 // pickNoun returns the singular or plural form of a noun depending
