@@ -3818,27 +3818,20 @@ func (w *Wallet) publishTransaction(tx *wire.MsgTx) (*chainhash.Hash, error) {
 		return nil, err
 	}
 
-	var (
-		txid      = tx.TxHash()
-		returnErr error
-	)
-
-	_, err = chainClient.SendRawTransaction(tx, false)
-	if err == nil {
+	txid := tx.TxHash()
+	_, rpcErr := chainClient.SendRawTransaction(tx, false)
+	if rpcErr == nil {
 		return &txid, nil
 	}
 
-	returnErr = MapBroadcastBackendError(err)
-
-	var errInMempool *ErrInMempool
-	var errAlreadyConfirmed *ErrAlreadyConfirmed
-
 	switch {
-	case errors.As(returnErr, &errInMempool):
+	case errors.Is(rpcErr, chain.ErrTxAlreadyInMempool):
 		log.Infof("%v: tx already in mempool", txid)
 		return &txid, nil
 
-	case errors.As(returnErr, &errAlreadyConfirmed):
+	case errors.Is(rpcErr, chain.ErrTxAlreadyKnown),
+		errors.Is(rpcErr, chain.ErrTxAlreadyConfirmed):
+
 		dbErr := walletdb.Update(w.db, func(dbTx walletdb.ReadWriteTx) error {
 			txmgrNs := dbTx.ReadWriteBucket(wtxmgrNamespaceKey)
 			txRec, err := wtxmgr.NewTxRecordFromMsgTx(tx, time.Now())
@@ -3859,7 +3852,7 @@ func (w *Wallet) publishTransaction(tx *wire.MsgTx) (*chainhash.Hash, error) {
 	}
 
 	// Log the causing error, even if we know how to handle it.
-	log.Infof("%v: broadcast failed because of: %v", txid, returnErr)
+	log.Infof("%v: broadcast failed because of: %v", txid, rpcErr)
 
 	// If the transaction was rejected for whatever other reason, then
 	// we'll remove it from the transaction store, as otherwise, we'll
@@ -3896,7 +3889,7 @@ func (w *Wallet) publishTransaction(tx *wire.MsgTx) (*chainhash.Hash, error) {
 		}
 	}
 
-	return nil, returnErr
+	return nil, rpcErr
 }
 
 // ChainParams returns the network parameters for the blockchain the wallet

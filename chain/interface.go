@@ -47,6 +47,7 @@ type Interface interface {
 	NotifyBlocks() error
 	Notifications() <-chan interface{}
 	BackEnd() string
+	MapRPCErr(err error) error
 }
 
 // Notification types.  These are defined here and processed from from reading

@@ -89,3 +89,7 @@ func (m *mockChainClient) Notifications() <-chan interface{} {
 func (m *mockChainClient) BackEnd() string {
 	return "mock"
 }
+
+func (m *mockChainClient) MapRPCErr(err error) error {
+	return nil
+}

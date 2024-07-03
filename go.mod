@@ -19,7 +19,7 @@ require (
 	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2
 	github.com/ltcsuite/ltcd/ltcutil v1.1.4
 	github.com/ltcsuite/ltcd/ltcutil/psbt v1.1.8
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.7.0
 	golang.org/x/net v0.10.0
