@@ -2,8 +2,10 @@ package wallet
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/wire"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -309,6 +312,7 @@ func TestGetTransaction(t *testing.T) {
 		})
 	}
 }
+
 func TestEndRecovery(t *testing.T) {
 	// This is an unconventional unit test, but I'm trying to keep things as
 	// succint as possible so that this test is readable without having to mock
@@ -428,5 +432,56 @@ func TestEndRecovery(t *testing.T) {
 
 	if !strings.EqualFold(err.Error(), "recovery: forced shutdown") {
 		t.Fatal("wrong error")
+	}
+}
+
+// TestDuplicateAddressDerivation tests that duplicate addresses are not
+// derived when multiple goroutines are concurrently requesting new addresses.
+func TestDuplicateAddressDerivation(t *testing.T) {
+	w, cleanup := testWallet(t)
+	defer cleanup()
+
+	var (
+		m           sync.Mutex
+		globalAddrs = make(map[string]ltcutil.Address)
+	)
+
+	for o := 0; o < 10; o++ {
+		var eg errgroup.Group
+
+		for n := 0; n < 10; n++ {
+			eg.Go(func() error {
+				addrs := make([]ltcutil.Address, 10)
+				for i := 0; i < 10; i++ {
+					addr, err := w.NewAddress(
+						0, waddrmgr.KeyScopeBIP0084,
+					)
+					if err != nil {
+						return err
+					}
+
+					addrs[i] = addr
+				}
+
+				m.Lock()
+				defer m.Unlock()
+
+				for idx := range addrs {
+					addrStr := addrs[idx].String()
+					if a, ok := globalAddrs[addrStr]; ok {
+						return fmt.Errorf("duplicate "+
+							"address! already "+
+							"have %v, want to "+
+							"add %v", a, addrs[idx])
+					}
+
+					globalAddrs[addrStr] = addrs[idx]
+				}
+
+				return nil
+			})
+		}
+
+		require.NoError(t, eg.Wait())
 	}
 }
