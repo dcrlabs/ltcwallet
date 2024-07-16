@@ -134,6 +134,8 @@ type Wallet struct {
 	chainClientSynced  bool
 	chainClientSyncMtx sync.Mutex
 
+	newAddrMtx sync.Mutex
+
 	lockedOutpoints    map[wire.OutPoint]struct{}
 	lockedOutpointsMtx sync.Mutex
 
@@ -1701,6 +1703,15 @@ func (w *Wallet) CurrentAddress(account uint32, scope waddrmgr.KeyScope) (ltcuti
 		return nil, err
 	}
 
+	// The address manager uses OnCommit on the walletdb tx to update the
+	// in-memory state of the account state. But because the commit happens
+	// _after_ the account manager internal lock has been released, there
+	// is a chance for the address index to be accessed concurrently, even
+	// though the closure in OnCommit re-acquires the lock. To avoid this
+	// issue, we surround the whole address creation process with a lock.
+	w.newAddrMtx.Lock()
+	defer w.newAddrMtx.Unlock()
+
 	var (
 		addr  ltcutil.Address
 		props *waddrmgr.AccountProperties
@@ -3161,6 +3172,15 @@ func (w *Wallet) NewAddress(account uint32,
 		return nil, err
 	}
 
+	// The address manager uses OnCommit on the walletdb tx to update the
+	// in-memory state of the account state. But because the commit happens
+	// _after_ the account manager internal lock has been released, there
+	// is a chance for the address index to be accessed concurrently, even
+	// though the closure in OnCommit re-acquires the lock. To avoid this
+	// issue, we surround the whole address creation process with a lock.
+	w.newAddrMtx.Lock()
+	defer w.newAddrMtx.Unlock()
+
 	var (
 		addr  ltcutil.Address
 		props *waddrmgr.AccountProperties
@@ -3218,6 +3238,15 @@ func (w *Wallet) NewChangeAddress(account uint32,
 	if err != nil {
 		return nil, err
 	}
+
+	// The address manager uses OnCommit on the walletdb tx to update the
+	// in-memory state of the account state. But because the commit happens
+	// _after_ the account manager internal lock has been released, there
+	// is a chance for the address index to be accessed concurrently, even
+	// though the closure in OnCommit re-acquires the lock. To avoid this
+	// issue, we surround the whole address creation process with a lock.
+	w.newAddrMtx.Lock()
+	defer w.newAddrMtx.Unlock()
 
 	var addr ltcutil.Address
 	err = walletdb.Update(w.db, func(tx walletdb.ReadWriteTx) error {
