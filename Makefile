@@ -8,8 +8,10 @@ GO_BIN := ${GOPATH}/bin
 LINT_BIN := $(GO_BIN)/golangci-lint
 GOACC_BIN := $(GO_BIN)/go-acc
 
-LINT_COMMIT := v1.18.0
-GOACC_COMMIT := 80342ae2e0fcf265e99e76bcc4efd022c7c3811b
+LINT_VERSION := v1.60.1
+GOACC_VERSION := v0.2.8
+
+GOIMPORTS_COMMIT := v0.1.10
 
 DEPGET := cd /tmp && GO111MODULE=on go get -v
 GOBUILD := GO111MODULE=on go build -v
@@ -49,11 +51,11 @@ all: build check
 
 $(LINT_BIN):
 	@$(call print, "Fetching linter")
-	$(DEPGET) $(LINT_PKG)@$(LINT_COMMIT)
+	$(GOINSTALL) $(LINT_PKG)@$(LINT_VERSION)
 
 $(GOACC_BIN):
 	@$(call print, "Fetching go-acc")
-	$(DEPGET) $(GOACC_PKG)@$(GOACC_COMMIT)
+	$(GOINSTALL) $(GOACC_PKG)@$(GOACC_VERSION)
 
 goimports:
 	@$(call print, "Installing goimports.")
@@ -126,3 +128,10 @@ tidy-module-check: tidy-module
 	fmt \
 	lint \
 	clean
+
+#? help: Get more info on make commands
+help: Makefile
+	@echo " Choose a command run in btcwallet:"
+	@sed -n 's/^#?//p' $< | column -t -s ':' |  sort | sed -e 's/^/ /'
+
+.PHONY: help
