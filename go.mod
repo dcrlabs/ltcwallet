@@ -1,14 +1,14 @@
 module github.com/dcrlabs/ltcwallet
 
 require (
-	github.com/btcsuite/btclog v1.0.0
+	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f
 	github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792
 	github.com/davecgh/go-spew v1.1.1
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
-	github.com/gcash/neutrino v0.0.0-20210524105223-4cec86bbd8a4
-	github.com/golang/protobuf v1.5.2
-	github.com/jessevdk/go-flags v1.5.0
-	github.com/jrick/logrotate v1.0.0
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
+	github.com/gcash/neutrino v0.0.0-20250514015105-313c5c417c87
+	github.com/golang/protobuf v1.5.4
+	github.com/jessevdk/go-flags v1.6.1
+	github.com/jrick/logrotate v1.1.2
 	github.com/lightninglabs/gozmq v0.0.0-20191113021534-d20a764486bf
 	github.com/ltcsuite/lnd/clock v1.1.0
 	github.com/ltcsuite/lnd/queue v1.1.0
@@ -19,45 +19,42 @@ require (
 	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2
 	github.com/ltcsuite/ltcd/ltcutil v1.1.4
 	github.com/ltcsuite/ltcd/ltcutil/psbt v1.1.8
-	github.com/stretchr/testify v1.8.4
-	go.etcd.io/bbolt v1.3.5
-	golang.org/x/crypto v0.7.0
-	golang.org/x/net v0.10.0
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/term v0.8.0
-	google.golang.org/grpc v1.38.0
+	github.com/stretchr/testify v1.10.0
+	go.etcd.io/bbolt v1.4.0
+	golang.org/x/crypto v0.38.0
+	golang.org/x/net v0.40.0
+	golang.org/x/sync v0.14.0
+	golang.org/x/term v0.32.0
+	google.golang.org/grpc v1.72.0
 )
 
 require (
 	github.com/aead/siphash v1.0.1 // indirect
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
 	github.com/btcsuite/golangcrypto v0.0.0-20150304025918-53f62d9b43e8 // indirect
-	github.com/dchest/siphash v1.2.2 // indirect
-	github.com/decred/dcrd/crypto/blake256 v1.1.0 // indirect
-	github.com/decred/dcrd/lru v1.1.1 // indirect
-	github.com/gcash/bchd v0.18.1 // indirect
+	github.com/dchest/siphash v1.2.3 // indirect
+	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
+	github.com/decred/dcrd/lru v1.1.2 // indirect
+	github.com/gcash/bchd v0.21.1-0.20250514010404-ccedcae68ea6 // indirect
 	github.com/gcash/bchlog v0.0.0-20180913005452-b4f036f92fa6 // indirect
-	github.com/gcash/bchutil v0.0.0-20210113190856-6ea28dff4000 // indirect
-	github.com/gcash/bchwallet v0.8.3-0.20210524112536-14ca25bc6549 // indirect
-	github.com/gcash/bchwallet/walletdb v0.0.0-20210524044131-61bcca2ae6f9 // indirect
+	github.com/gcash/bchutil v0.0.0-20250514010653-ef9bffba99e1 // indirect
+	github.com/gcash/bchwallet v0.11.1-0.20250514014704-4c3e95a83096 // indirect
+	github.com/gcash/bchwallet/walletdb v0.0.0-20250507004057-0b86962bf958 // indirect
 	github.com/kkdai/bstream v1.0.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/ltcsuite/secp256k1 v0.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/zquestz/grab v0.0.0-20190224022517-abcee96e61b1 // indirect
-	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
-	google.golang.org/genproto v0.0.0-20210521181308-5ccab8a35a9a // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250512202823-5a2f75b736a9 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
+	lukechampine.com/uint128 v1.3.0 // indirect
 )
 
-// The old version of ginko that's used in btcd imports an ancient version of
-// gopkg.in/fsnotify.v1 that isn't go mod compatible. We fix that import error
-// by replacing ginko (which is only a test library anyway) with a more recent
-// version.
-replace github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.14.2
+go 1.23.4
 
-go 1.18
+toolchain go1.24.4
