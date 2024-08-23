@@ -1057,8 +1057,12 @@ func (s *ChainService) GetBlockHeight(hash *chainhash.Hash) (int32, error) {
 // BanPeer disconnects and bans a peer due to a specific reason for a duration
 // of BanDuration.
 func (s *ChainService) BanPeer(addr string, reason banman.Reason) error {
-	log.Warnf("Banning peer %v: duration=%v, reason=%v", addr, BanDuration,
-		reason)
+	if reason == banman.NoCompactFilters {
+		log.Tracef("Peer %s does not support compact filters", addr)
+	} else {
+		log.Warnf("Banning peer %v: duration=%v, reason=%v", addr, BanDuration,
+			reason)
+	}
 
 	// We'll want to disconnect the peer after we return regardless of
 	// whether we ban the peer or not. We do this to prevent a possible race
