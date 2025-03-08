@@ -250,8 +250,7 @@ func TestStoreQueries(t *testing.T) {
 	var tests []queryTest
 
 	// Create the store and test initial state.
-	s, db, teardown, err := testStore()
-	defer teardown()
+	s, db, err := testStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,8 +527,7 @@ func TestStoreQueries(t *testing.T) {
 func TestPreviousPkScripts(t *testing.T) {
 	t.Parallel()
 
-	s, db, teardown, err := testStore()
-	defer teardown()
+	s, db, err := testStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}

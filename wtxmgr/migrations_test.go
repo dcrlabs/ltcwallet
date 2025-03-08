@@ -18,11 +18,10 @@ func applyMigration(t *testing.T,
 	t.Helper()
 
 	// We'll start by setting up our transaction store backed by a database.
-	store, db, teardown, err := testStore()
+	store, db, err := testStore(t)
 	if err != nil {
 		t.Fatalf("unable to create test store: %v", err)
 	}
-	defer teardown()
 
 	// First, we'll run the beforeMigration closure, which contains the
 	// database modifications/assertions needed before proceeding with the

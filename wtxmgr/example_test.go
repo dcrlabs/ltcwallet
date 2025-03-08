@@ -6,6 +6,7 @@ package wtxmgr
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/dcrlabs/ltcwallet/walletdb"
 	"github.com/ltcsuite/ltcd/chaincfg"
@@ -43,9 +44,8 @@ var exampleBlock100 = makeBlockMeta(100)
 
 // This example demonstrates reporting the Store balance given an unmined and
 // mined transaction given 0, 1, and 6 block confirmations.
-func ExampleStore_Balance() {
-	s, db, teardown, err := testStore()
-	defer teardown()
+func TestExampleStore_Balance(t *testing.T) {
+	s, db, err := testStore(t)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -114,9 +114,8 @@ func ExampleStore_Balance() {
 	// 10 LTC, 10 LTC, 10 LTC
 }
 
-func ExampleStore_Rollback() {
-	s, db, teardown, err := testStore()
-	defer teardown()
+func TestExampleStore_Rollback(t *testing.T) {
+	s, db, err := testStore(t)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -157,10 +156,9 @@ func ExampleStore_Rollback() {
 	// -1
 }
 
-func Example_basicUsage() {
+func TestExample_basicUsage(t *testing.T) {
 	// Open the database.
-	db, dbTeardown, err := testDB()
-	defer dbTeardown()
+	db, err := testDB(t)
 	if err != nil {
 		fmt.Println(err)
 		return
