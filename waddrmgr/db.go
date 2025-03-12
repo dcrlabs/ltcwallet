@@ -1200,6 +1200,8 @@ func putAccountIDIndex(ns walletdb.ReadWriteBucket, scope *KeyScope,
 
 // putAddrAccountIndex stores the given key to the address account index of the
 // database.
+//
+// TODO(yy): can remove the `ns` and take the `scopedBucket` instead?
 func putAddrAccountIndex(ns walletdb.ReadWriteBucket, scope *KeyScope,
 	account uint32, addrHash []byte) error {
 
@@ -1216,6 +1218,8 @@ func putAddrAccountIndex(ns walletdb.ReadWriteBucket, scope *KeyScope,
 		return nil
 	}
 
+	// TODO(yy): We already saved the addrHash and account above, so this
+	// may be not needed. Investigate it during the sqlization series.
 	bucket, err = bucket.CreateBucketIfNotExists(uint32ToBytes(account))
 	if err != nil {
 		return err
