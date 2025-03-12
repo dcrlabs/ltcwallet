@@ -261,11 +261,7 @@ func (c *BitcoindClient) Notifications() <-chan interface{} {
 func (c *BitcoindClient) NotifyReceived(addrs []ltcutil.Address) error {
 	_ = c.NotifyBlocks()
 
-	select {
-	case c.rescanUpdate <- addrs:
-	case <-c.quit:
-		return ErrBitcoindClientShuttingDown
-	}
+	c.updateWatchedFilters(addrs)
 
 	return nil
 }
@@ -276,11 +272,7 @@ func (c *BitcoindClient) NotifySpent(outPoints []*wire.OutPoint) error {
 	_ = c.NotifyBlocks()
 
 	// Send the outpoints so the client will cache them.
-	select {
-	case c.rescanUpdate <- outPoints:
-	case <-c.quit:
-		return ErrBitcoindClientShuttingDown
-	}
+	c.updateWatchedFilters(outPoints)
 
 	// Now we do a quick check in current mempool to see if we already have
 	// txes that spends the given outpoints.
@@ -323,11 +315,7 @@ func (c *BitcoindClient) NotifySpent(outPoints []*wire.OutPoint) error {
 func (c *BitcoindClient) NotifyTx(txids []chainhash.Hash) error {
 	_ = c.NotifyBlocks()
 
-	select {
-	case c.rescanUpdate <- txids:
-	case <-c.quit:
-		return ErrBitcoindClientShuttingDown
-	}
+	c.updateWatchedFilters(txids)
 
 	return nil
 }
@@ -396,21 +384,7 @@ func (c *BitcoindClient) shouldNotifyBlocks() bool {
 //	[]*chainhash.Hash
 func (c *BitcoindClient) LoadTxFilter(reset bool, filters ...interface{}) error {
 	if reset {
-		select {
-		case c.rescanUpdate <- struct{}{}:
-		case <-c.quit:
-			return ErrBitcoindClientShuttingDown
-		}
-	}
-
-	updateFilter := func(filter interface{}) error {
-		select {
-		case c.rescanUpdate <- filter:
-		case <-c.quit:
-			return ErrBitcoindClientShuttingDown
-		}
-
-		return nil
+		c.resetWatchedFilters()
 	}
 
 	// In order to make this operation atomic, we'll iterate through the
@@ -429,9 +403,7 @@ func (c *BitcoindClient) LoadTxFilter(reset bool, filters ...interface{}) error 
 	}
 
 	for _, filter := range filters {
-		if err := updateFilter(filter); err != nil {
-			return err
-		}
+		c.updateWatchedFilters(filter)
 	}
 
 	return nil
@@ -496,17 +468,8 @@ func (c *BitcoindClient) Rescan(blockHash *chainhash.Hash,
 	}
 
 	// We'll then update our filters with the given outpoints and addresses.
-	select {
-	case c.rescanUpdate <- addresses:
-	case <-c.quit:
-		return ErrBitcoindClientShuttingDown
-	}
-
-	select {
-	case c.rescanUpdate <- outPoints:
-	case <-c.quit:
-		return ErrBitcoindClientShuttingDown
-	}
+	c.updateWatchedFilters(addresses)
+	c.updateWatchedFilters(outPoints)
 
 	// Once the filters have been updated, we can begin the rescan.
 	select {
@@ -1431,4 +1394,67 @@ func (c *BitcoindClient) filterTx(txDetails *ltcutil.Tx,
 	c.onRelevantTx(rec, blockDetails)
 
 	return true, rec, nil
+}
+
+// LookupInputMempoolSpend returns the transaction hash and true if the given
+// input is found being spent in mempool, otherwise it returns nil and false.
+func (c *BitcoindClient) LookupInputMempoolSpend(op wire.OutPoint) (
+	chainhash.Hash, bool) {
+
+	return c.chainConn.events.LookupInputSpend(op)
+}
+
+// resetWatchedFilters empties the maps used to track outpoints, addresses, and
+// txns.
+func (c *BitcoindClient) resetWatchedFilters() {
+	c.watchMtx.Lock()
+	defer c.watchMtx.Unlock()
+
+	c.watchedOutPoints = make(map[wire.OutPoint]struct{})
+	c.watchedAddresses = make(map[string]struct{})
+	c.watchedTxs = make(map[chainhash.Hash]struct{})
+}
+
+// updateWatchedFilters is used to update the internal maps that track the
+// watched addresses, outpoints, or txns.
+func (c *BitcoindClient) updateWatchedFilters(update any) {
+	c.watchMtx.Lock()
+	defer c.watchMtx.Unlock()
+
+	switch update := update.(type) {
+	// We're adding the addresses to our filter.
+	case []ltcutil.Address:
+		for _, addr := range update {
+			c.watchedAddresses[addr.String()] = struct{}{}
+		}
+
+	// We're adding the outpoints to our filter.
+	case []wire.OutPoint:
+		for _, op := range update {
+			c.watchedOutPoints[op] = struct{}{}
+		}
+
+	case []*wire.OutPoint:
+		for _, op := range update {
+			c.watchedOutPoints[*op] = struct{}{}
+		}
+
+	// We're adding the outpoints that map to the scripts
+	// that we should scan for to our filter.
+	case map[wire.OutPoint]ltcutil.Address:
+		for op := range update {
+			c.watchedOutPoints[op] = struct{}{}
+		}
+
+	// We're adding the transactions to our filter.
+	case []chainhash.Hash:
+		for _, txid := range update {
+			c.watchedTxs[txid] = struct{}{}
+		}
+
+	case []*chainhash.Hash:
+		for _, txid := range update {
+			c.watchedTxs[*txid] = struct{}{}
+		}
+	}
 }
