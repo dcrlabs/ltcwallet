@@ -14,6 +14,7 @@ import (
 	"github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	"github.com/ltcsuite/ltcd/ltcutil"
 	"github.com/ltcsuite/ltcd/txscript"
+	"github.com/ltcsuite/ltcd/wire"
 )
 
 // TODO: It would be good to send errors during notification creation to the rpc
@@ -148,6 +149,7 @@ func makeTxSummary(dbtx walletdb.ReadTx, w *Wallet, details *wtxmgr.TxDetails) T
 		Fee:         fee,
 		Timestamp:   details.Received.Unix(),
 		Label:       details.Label,
+		Tx:          &details.MsgTx,
 	}
 }
 
@@ -366,6 +368,7 @@ type TransactionSummary struct {
 	Fee         ltcutil.Amount
 	Timestamp   int64
 	Label       string
+	Tx          *wire.MsgTx
 }
 
 // TransactionSummaryInput describes a transaction input that is relevant to the
