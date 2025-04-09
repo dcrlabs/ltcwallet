@@ -158,11 +158,12 @@ func TestExampleStore_Rollback(t *testing.T) {
 
 func TestExample_basicUsage(t *testing.T) {
 	// Open the database.
-	db, err := testDB(t)
+	db, cleanup, err := exampleDB()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer cleanup()
 
 	// Open a read-write transaction to operate on the database.
 	dbtx, err := db.BeginReadWriteTx()

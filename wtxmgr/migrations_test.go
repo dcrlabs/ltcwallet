@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/dcrlabs/ltcwallet/walletdb"
+	"github.com/stretchr/testify/require"
 )
 
 // applyMigration is a helper function that allows us to assert the state of the
@@ -22,6 +23,10 @@ func applyMigration(t *testing.T,
 	if err != nil {
 		t.Fatalf("unable to create test store: %v", err)
 	}
+	defer func() {
+		err := db.Close()
+		require.NoError(t, err)
+	}()
 
 	// First, we'll run the beforeMigration closure, which contains the
 	// database modifications/assertions needed before proceeding with the

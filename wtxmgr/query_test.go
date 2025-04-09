@@ -254,6 +254,10 @@ func TestStoreQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		db.Close()
+	}()
+
 	lastState := newQueryState()
 	tests = append(tests, queryTest{
 		desc:    "initial store",
@@ -531,6 +535,9 @@ func TestPreviousPkScripts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		db.Close()
+	}()
 
 	// Invalid scripts but sufficient for testing.
 	var (
