@@ -45,11 +45,12 @@ var exampleBlock100 = makeBlockMeta(100)
 // This example demonstrates reporting the Store balance given an unmined and
 // mined transaction given 0, 1, and 6 block confirmations.
 func TestExampleStore_Balance(t *testing.T) {
-	s, db, err := testStore(t)
+	s, db, cleanup, err := exampleStore()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer cleanup()
 
 	// Prints balances for 0 block confirmations, 1 confirmation, and 6
 	// confirmations.
@@ -115,11 +116,12 @@ func TestExampleStore_Balance(t *testing.T) {
 }
 
 func TestExampleStore_Rollback(t *testing.T) {
-	s, db, err := testStore(t)
+	s, db, cleanup, err := exampleStore()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer cleanup()
 
 	err = walletdb.Update(db, func(tx walletdb.ReadWriteTx) error {
 		ns := tx.ReadWriteBucket(namespaceKey)
