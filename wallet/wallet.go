@@ -383,7 +383,7 @@ func (w *Wallet) activeData(dbtx walletdb.ReadWriteTx) ([]ltcutil.Address, []wtx
 		return nil, nil, err
 	}
 
-	unspent, err := w.TxStore.UnspentOutputs(txmgrNs)
+	unspent, err := w.TxStore.OutputsToWatch(txmgrNs)
 	return addrs, unspent, err
 }
 
